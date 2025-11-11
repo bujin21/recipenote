@@ -1,49 +1,78 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import AuthService from '../services/auth.service';
+import RecipeService from '../services/recipe.service';
 import '../styles/Dashboard.css';
 
 function DashboardPage() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('전체');
+  const [recipes, setRecipes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
 
-  // 임시 데이터
-  const recipes = [
-    {
-      id: 1,
-      title: '김치찌개',
-      time: '30분',
-      difficulty: '쉬움',
-      emoji: '🍲',
-      tags: ['매운맛', '국/찌개'],
-      favorite: true
-    },
-    {
-      id: 2,
-      title: '토마토 파스타',
-      time: '25분',
-      difficulty: '쉬움',
-      emoji: '🍝',
-      tags: ['양식', '메인'],
-      favorite: false
-    },
-    {
-      id: 3,
-      title: '카레라이스',
-      time: '40분',
-      difficulty: '보통',
-      emoji: '🍛',
-      tags: ['일식', '메인'],
-      favorite: false
-    },
-    {
-      id: 4,
-      title: '시저 샐러드',
-      time: '15분',
-      difficulty: '쉬움',
-      emoji: '🥗',
-      tags: ['샐러드', '건강식'],
-      favorite: true
+  useEffect(() => {
+    // 인증 확인
+    if (!AuthService.isAuthenticated()) {
+      navigate('/login');
+      return;
     }
-  ];
+
+    // 사용자 정보 가져오기
+    const userData = AuthService.getUser();
+    setUser(userData);
+
+    // 레시피 목록 가져오기
+    loadRecipes();
+  }, [navigate]);
+
+  const loadRecipes = async () => {
+    try {
+      setLoading(true);
+      const response = await RecipeService.getRecipes();
+      
+      if (response.success) {
+        setRecipes(response.data.recipes || []);
+      }
+    } catch (error) {
+      console.error('레시피 로드 실패:', error);
+      alert('레시피를 불러오는데 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    if (window.confirm('로그아웃 하시겠습니까?')) {
+      AuthService.logout();
+    }
+  };
+
+  const handleRecipeClick = (recipeId) => {
+    navigate(`/recipe/${recipeId}`);
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      loadRecipes();
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await RecipeService.searchRecipes(searchQuery);
+      
+      if (response.success) {
+        setRecipes(response.data || []);
+      }
+    } catch (error) {
+      console.error('검색 실패:', error);
+      alert('검색에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filters = ['전체', '🍽️ 메인 요리', '🥗 반찬', '🍜 국/찌개', '🍰 디저트', '⚡ 30분 이내', '😊 쉬움'];
 
@@ -55,7 +84,7 @@ function DashboardPage() {
         <nav className="nav">
           <a href="/dashboard">내 레시피</a>
           <a href="/profile">프로필</a>
-          <a href="/login">로그아웃</a>
+          <a onClick={handleLogout} style={{ cursor: 'pointer' }}>로그아웃</a>
         </nav>
       </header>
 
@@ -63,21 +92,24 @@ function DashboardPage() {
       <div className="dashboard-content">
         <div className="page-header">
           <h1 className="page-title">내 레시피</h1>
-          <p className="page-subtitle">42개의 레시피를 저장했어요 🎉</p>
+          <p className="page-subtitle">
+            {user ? `안녕하세요, ${user.name}님! ` : ''}
+            {recipes.length}개의 레시피를 저장했어요 🎉
+          </p>
         </div>
 
         {/* 통계 카드 */}
         <div className="stats-grid">
           <div className="stat-card">
-            <div className="stat-value">42</div>
+            <div className="stat-value">{recipes.length}</div>
             <div className="stat-label">전체 레시피</div>
           </div>
           <div className="stat-card">
-            <div className="stat-value">12</div>
+            <div className="stat-value">0</div>
             <div className="stat-label">즐겨찾기</div>
           </div>
           <div className="stat-card">
-            <div className="stat-value">8</div>
+            <div className="stat-value">0</div>
             <div className="stat-label">이번 주 추가</div>
           </div>
         </div>
@@ -90,8 +122,9 @@ function DashboardPage() {
             placeholder="🔍 레시피, 재료 검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
           />
-          <button className="btn-search">검색</button>
+          <button className="btn-search" onClick={handleSearch}>검색</button>
         </div>
 
         {/* 필터 */}
@@ -108,30 +141,58 @@ function DashboardPage() {
         </div>
 
         {/* 레시피 그리드 */}
-        <div className="recipe-grid">
-          {recipes.map((recipe) => (
-            <div key={recipe.id} className="recipe-card" onClick={() => window.location.href = '/recipe/1'}>
-              <div className="recipe-image">
-                {recipe.emoji}
-                <div className="recipe-favorite">
-                  {recipe.favorite ? '❤️' : '🤍'}
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px' }}>
+            <div className="spinner"></div>
+            <p style={{ marginTop: '20px', color: '#718096' }}>레시피를 불러오는 중...</p>
+          </div>
+        ) : recipes.length === 0 ? (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '80px 20px',
+            color: '#718096'
+          }}>
+            <div style={{ fontSize: '64px', marginBottom: '20px' }}>📝</div>
+            <h3 style={{ fontSize: '24px', marginBottom: '12px' }}>아직 레시피가 없습니다</h3>
+            <p>우측 하단의 + 버튼을 눌러 첫 레시피를 추가해보세요!</p>
+          </div>
+        ) : (
+          <div className="recipe-grid">
+            {recipes.map((recipe, index) => (
+              <div 
+                key={recipe.recipeId} 
+                className="recipe-card" 
+                onClick={() => handleRecipeClick(recipe.recipeId)}
+              >
+                <div className="recipe-image" style={{
+                  background: index % 4 === 0 ? 'linear-gradient(135deg, #FFE66D 0%, #FFD93D 100%)' :
+                             index % 4 === 1 ? 'linear-gradient(135deg, #FF9A9E 0%, #FAD0C4 100%)' :
+                             index % 4 === 2 ? 'linear-gradient(135deg, #A8EDEA 0%, #FED6E3 100%)' :
+                             'linear-gradient(135deg, #C3E7FF 0%, #A8D8EA 100%)'
+                }}>
+                  {recipe.emoji || '🍽️'}
+                  <div className="recipe-favorite">
+                    🤍
+                  </div>
+                </div>
+                <div className="recipe-content">
+                  <div className="recipe-title">{recipe.title}</div>
+                  <div className="recipe-meta">
+                    <span>⏱️ {recipe.cookingTime}분</span>
+                    <span>👤 {recipe.difficulty}</span>
+                  </div>
+                  {recipe.tags && recipe.tags.length > 0 && (
+                    <div className="tags">
+                      {recipe.tags.slice(0, 2).map((tag) => (
+                        <span key={tag} className="tag">{tag}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="recipe-content">
-                <div className="recipe-title">{recipe.title}</div>
-                <div className="recipe-meta">
-                  <span>⏱️ {recipe.time}</span>
-                  <span>👤 {recipe.difficulty}</span>
-                </div>
-                <div className="tags">
-                  {recipe.tags.map((tag) => (
-                    <span key={tag} className="tag">{tag}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* 무한 스크롤 로딩 */}
         <div className="loading-more" style={{ display: 'none' }}>
@@ -141,7 +202,7 @@ function DashboardPage() {
       </div>
 
       {/* FAB 버튼 */}
-      <button className="fab" onClick={() => window.location.href = '/recipe/new'}>
+      <button className="fab" onClick={() => navigate('/recipe/new')}>
         +
       </button>
     </div>
