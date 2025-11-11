@@ -1,9 +1,15 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import AuthService from '../services/auth.service';
+import RecipeService from '../services/recipe.service';
 import '../styles/RecipeForm.css';
 
 function RecipeFormPage() {
+  const navigate = useNavigate();
   const [showUrlModal, setShowUrlModal] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -11,13 +17,21 @@ function RecipeFormPage() {
     cuisine: '',
     difficulty: '쉬움',
     cookingTime: '',
-    servings: ''
+    servings: '',
+    tags: []
   });
 
-  const [ingredients, setIngredients] = useState([
-    { name: '김치', amount: '1컵' },
-    { name: '돼지고기', amount: '200g' }
-  ]);
+  const [ingredients, setIngredients] = useState([]);
+  const [newIngredient, setNewIngredient] = useState({ name: '', amount: '' });
+  
+  const [steps, setSteps] = useState(['']);
+
+  // 로그인 확인
+  React.useEffect(() => {
+    if (!AuthService.isAuthenticated()) {
+      navigate('/login');
+    }
+  }, [navigate]);
 
   const handleChange = (e) => {
     setFormData({
@@ -26,23 +40,87 @@ function RecipeFormPage() {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleAddIngredient = () => {
+    if (newIngredient.name && newIngredient.amount) {
+      setIngredients([...ingredients, newIngredient]);
+      setNewIngredient({ name: '', amount: '' });
+    }
+  };
+
+  const handleRemoveIngredient = (index) => {
+    setIngredients(ingredients.filter((_, i) => i !== index));
+  };
+
+  const handleStepChange = (index, value) => {
+    const newSteps = [...steps];
+    newSteps[index] = value;
+    setSteps(newSteps);
+  };
+
+  const handleAddStep = () => {
+    setSteps([...steps, '']);
+  };
+
+  const handleRemoveStep = (index) => {
+    if (steps.length > 1) {
+      setSteps(steps.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('레시피 저장:', formData, ingredients);
-    // TODO: API 호출
-    alert('레시피가 저장되었습니다!');
-    window.location.href = '/dashboard';
+
+    // 유효성 검사
+    if (ingredients.length === 0) {
+      alert('재료를 최소 1개 이상 추가해주세요.');
+      return;
+    }
+
+    if (steps.filter(s => s.trim()).length === 0) {
+      alert('조리 순서를 최소 1개 이상 추가해주세요.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const recipeData = {
+        ...formData,
+        cookingTime: parseInt(formData.cookingTime),
+        servings: parseInt(formData.servings) || 1,
+        ingredients,
+        steps: steps.filter(s => s.trim()),
+        tags: formData.tags ? formData.tags.split(',').map(t => t.trim()) : []
+      };
+
+      const response = await RecipeService.createRecipe(recipeData);
+
+      if (response.success) {
+        alert('레시피가 저장되었습니다!');
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      console.error('레시피 저장 실패:', error);
+      alert(error.error?.message || '레시피 저장에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUrlParsing = () => {
     setShowUrlModal(false);
     setIsParsing(true);
     
-    // 3초 후 파싱 완료 시뮬레이션
     setTimeout(() => {
       setIsParsing(false);
-      alert('✅ 파싱 완료!\n\n레시피가 자동으로 입력되었습니다.');
-    }, 3000);
+      alert('URL 파싱 기능은 준비 중입니다.');
+    }, 2000);
+  };
+
+  const handleLogout = () => {
+    if (window.confirm('로그아웃 하시겠습니까?')) {
+      AuthService.logout();
+    }
   };
 
   return (
@@ -53,7 +131,7 @@ function RecipeFormPage() {
         <nav className="nav">
           <a href="/dashboard">내 레시피</a>
           <a href="/profile">프로필</a>
-          <a href="/login">로그아웃</a>
+          <a onClick={handleLogout} style={{ cursor: 'pointer' }}>로그아웃</a>
         </nav>
       </header>
 
@@ -84,6 +162,7 @@ function RecipeFormPage() {
                 onChange={handleChange}
                 placeholder="레시피 제목을 입력하세요"
                 required
+                disabled={loading}
               />
             </div>
 
@@ -95,6 +174,7 @@ function RecipeFormPage() {
                 onChange={handleChange}
                 placeholder="간단한 설명을 입력하세요"
                 rows="3"
+                disabled={loading}
               />
             </div>
 
@@ -103,20 +183,90 @@ function RecipeFormPage() {
               {ingredients.map((ingredient, index) => (
                 <div key={index} className="ingredient-list-item">
                   <span>{ingredient.name} - {ingredient.amount}</span>
-                  <button type="button" className="btn-delete">삭제</button>
+                  <button 
+                    type="button" 
+                    className="btn-delete"
+                    onClick={() => handleRemoveIngredient(index)}
+                    disabled={loading}
+                  >
+                    삭제
+                  </button>
                 </div>
               ))}
               <div className="ingredient-input-group">
-                <input type="text" placeholder="재료명" />
-                <input type="text" placeholder="양" />
-                <button type="button" className="btn-add">추가</button>
+                <input 
+                  type="text" 
+                  placeholder="재료명"
+                  value={newIngredient.name}
+                  onChange={(e) => setNewIngredient({ ...newIngredient, name: e.target.value })}
+                  disabled={loading}
+                />
+                <input 
+                  type="text" 
+                  placeholder="양"
+                  value={newIngredient.amount}
+                  onChange={(e) => setNewIngredient({ ...newIngredient, amount: e.target.value })}
+                  disabled={loading}
+                />
+                <button 
+                  type="button" 
+                  className="btn-add"
+                  onClick={handleAddIngredient}
+                  disabled={loading}
+                >
+                  추가
+                </button>
               </div>
+            </div>
+
+            <div className="form-group">
+              <label>조리 순서 *</label>
+              {steps.map((step, index) => (
+                <div key={index} style={{ marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                    <div className="step-number">{index + 1}</div>
+                    <textarea
+                      className="step-textarea"
+                      placeholder={`${index + 1}번째 단계를 입력하세요`}
+                      value={step}
+                      onChange={(e) => handleStepChange(index, e.target.value)}
+                      disabled={loading}
+                    />
+                    {steps.length > 1 && (
+                      <button
+                        type="button"
+                        className="btn-delete"
+                        onClick={() => handleRemoveStep(index)}
+                        disabled={loading}
+                        style={{ marginTop: '10px' }}
+                      >
+                        삭제
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <button 
+                type="button" 
+                className="btn-outline" 
+                style={{ width: '100%' }}
+                onClick={handleAddStep}
+                disabled={loading}
+              >
+                + 단계 추가
+              </button>
             </div>
 
             <div className="form-row">
               <div className="form-group">
                 <label>카테고리 *</label>
-                <select name="category" value={formData.category} onChange={handleChange} required>
+                <select 
+                  name="category" 
+                  value={formData.category} 
+                  onChange={handleChange} 
+                  required
+                  disabled={loading}
+                >
                   <option value="">선택하세요</option>
                   <option value="메인 요리">메인 요리</option>
                   <option value="반찬">반찬</option>
@@ -127,7 +277,12 @@ function RecipeFormPage() {
 
               <div className="form-group">
                 <label>난이도 *</label>
-                <select name="difficulty" value={formData.difficulty} onChange={handleChange}>
+                <select 
+                  name="difficulty" 
+                  value={formData.difficulty} 
+                  onChange={handleChange}
+                  disabled={loading}
+                >
                   <option value="쉬움">쉬움</option>
                   <option value="보통">보통</option>
                   <option value="어려움">어려움</option>
@@ -143,13 +298,37 @@ function RecipeFormPage() {
                   onChange={handleChange}
                   placeholder="30"
                   required
+                  disabled={loading}
                 />
               </div>
             </div>
 
+            <div className="form-group">
+              <label>태그</label>
+              <input
+                type="text"
+                name="tags"
+                value={formData.tags}
+                onChange={handleChange}
+                placeholder="태그를 입력하세요 (쉼표로 구분)"
+                disabled={loading}
+              />
+            </div>
+
             <div className="action-buttons">
-              <button type="submit" className="btn-primary">저장하기</button>
-              <button type="button" className="btn-secondary" onClick={() => window.history.back()}>
+              <button 
+                type="submit" 
+                className="btn-primary"
+                disabled={loading}
+              >
+                {loading ? '저장 중...' : '저장하기'}
+              </button>
+              <button 
+                type="button" 
+                className="btn-secondary" 
+                onClick={() => navigate('/dashboard')}
+                disabled={loading}
+              >
                 취소
               </button>
             </div>

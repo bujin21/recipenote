@@ -1,34 +1,105 @@
-import React from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import AuthService from '../services/auth.service';
+import RecipeService from '../services/recipe.service';
 import '../styles/RecipeDetail.css';
 
 function RecipeDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const [recipe, setRecipe] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // 임시 데이터
-  const recipe = {
-    id: 1,
-    title: '김치찌개',
-    emoji: '🍲',
-    time: '30분',
-    difficulty: '쉬움',
-    servings: '2인분',
-    tags: ['매운맛', '국/찌개', '한식', '겨울음식'],
-    ingredients: [
-      { name: '김치', amount: '1컵' },
-      { name: '돼지고기', amount: '200g' },
-      { name: '두부', amount: '1/2모' },
-      { name: '대파', amount: '1대' },
-      { name: '고춧가루', amount: '1큰술' }
-    ],
-    steps: [
-      '김치를 먹기 좋은 크기로 자릅니다.',
-      '냄비에 참기름을 두르고 김치와 돼지고기를 볶습니다.',
-      '물을 붓고 끓입니다. (약 15분)',
-      '두부와 대파를 넣고 5분 더 끓입니다.',
-      '고춧가루로 간을 맞추고 완성!'
-    ]
+  useEffect(() => {
+    // 인증 확인
+    if (!AuthService.isAuthenticated()) {
+      navigate('/login');
+      return;
+    }
+
+    loadRecipe();
+  }, [id, navigate]);
+
+  const loadRecipe = async () => {
+    try {
+      setLoading(true);
+      const response = await RecipeService.getRecipe(id);
+      
+      if (response.success) {
+        setRecipe(response.data);
+      }
+    } catch (error) {
+      console.error('레시피 로드 실패:', error);
+      alert('레시피를 불러오는데 실패했습니다.');
+      navigate('/dashboard');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleDelete = async () => {
+    if (!window.confirm('정말 이 레시피를 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      const response = await RecipeService.deleteRecipe(id);
+      
+      if (response.success) {
+        alert('레시피가 삭제되었습니다.');
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      console.error('레시피 삭제 실패:', error);
+      alert('레시피 삭제에 실패했습니다.');
+    }
+  };
+
+  const handleLogout = () => {
+    if (window.confirm('로그아웃 하시겠습니까?')) {
+      AuthService.logout();
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="recipe-detail-container">
+        <header className="dashboard-header">
+          <div className="logo">🍳 RecipeNote</div>
+          <nav className="nav">
+            <a href="/dashboard">내 레시피</a>
+            <a href="/profile">프로필</a>
+            <a onClick={handleLogout} style={{ cursor: 'pointer' }}>로그아웃</a>
+          </nav>
+        </header>
+        <div style={{ textAlign: 'center', padding: '100px 20px' }}>
+          <div className="spinner"></div>
+          <p style={{ marginTop: '20px', color: '#718096' }}>레시피를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!recipe) {
+    return (
+      <div className="recipe-detail-container">
+        <header className="dashboard-header">
+          <div className="logo">🍳 RecipeNote</div>
+          <nav className="nav">
+            <a href="/dashboard">내 레시피</a>
+            <a href="/profile">프로필</a>
+            <a onClick={handleLogout} style={{ cursor: 'pointer' }}>로그아웃</a>
+          </nav>
+        </header>
+        <div style={{ textAlign: 'center', padding: '100px 20px' }}>
+          <h2>레시피를 찾을 수 없습니다</h2>
+          <button className="btn-primary" onClick={() => navigate('/dashboard')}>
+            돌아가기
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="recipe-detail-container">
@@ -38,35 +109,50 @@ function RecipeDetailPage() {
         <nav className="nav">
           <a href="/dashboard">내 레시피</a>
           <a href="/profile">프로필</a>
-          <a href="/login">로그아웃</a>
+          <a onClick={handleLogout} style={{ cursor: 'pointer' }}>로그아웃</a>
         </nav>
       </header>
 
       {/* 메인 콘텐츠 */}
       <div className="recipe-detail-content">
-        <button className="btn-back" onClick={() => window.history.back()}>
+        <button className="btn-back" onClick={() => navigate('/dashboard')}>
           ← 돌아가기
         </button>
 
         <div className="detail-header">
           <h1 className="detail-title">{recipe.title}</h1>
           <div className="recipe-meta">
-            <span>⏱️ {recipe.time}</span>
+            <span>⏱️ {recipe.cookingTime}분</span>
             <span>👤 {recipe.difficulty}</span>
-            <span>🍽️ {recipe.servings}</span>
+            <span>🍽️ {recipe.servings || 2}인분</span>
           </div>
-          <div className="tags">
-            {recipe.tags.map((tag) => (
-              <span key={tag} className="tag">{tag}</span>
-            ))}
-          </div>
+          {recipe.tags && recipe.tags.length > 0 && (
+            <div className="tags">
+              {recipe.tags.map((tag) => (
+                <span key={tag} className="tag">{tag}</span>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="detail-image">{recipe.emoji}</div>
+        <div className="detail-image">{recipe.emoji || '🍽️'}</div>
+
+        {recipe.description && (
+          <div style={{ 
+            padding: '20px', 
+            background: '#F7F9FC', 
+            borderRadius: '12px', 
+            marginBottom: '40px',
+            color: '#2D3748',
+            lineHeight: '1.6'
+          }}>
+            {recipe.description}
+          </div>
+        )}
 
         <h2 className="section-title">📝 재료</h2>
         <div className="ingredients-list">
-          {recipe.ingredients.map((ingredient, index) => (
+          {recipe.ingredients && recipe.ingredients.map((ingredient, index) => (
             <div key={index} className="ingredient-item">
               <span>{ingredient.name}</span>
               <span>{ingredient.amount}</span>
@@ -76,7 +162,7 @@ function RecipeDetailPage() {
 
         <h2 className="section-title">👨‍🍳 조리 순서</h2>
         <div className="steps-list">
-          {recipe.steps.map((step, index) => (
+          {recipe.steps && recipe.steps.map((step, index) => (
             <div key={index} className="step-item">
               <div className="step-number">{index + 1}</div>
               <div>{step}</div>
@@ -85,9 +171,24 @@ function RecipeDetailPage() {
         </div>
 
         <div className="action-buttons">
-          <button className="btn-primary">수정하기</button>
-          <button className="btn-secondary">보관함으로</button>
-          <button className="btn-outline">삭제하기</button>
+          <button 
+            className="btn-primary" 
+            onClick={() => alert('수정 기능은 준비 중입니다.')}
+          >
+            수정하기
+          </button>
+          <button 
+            className="btn-secondary"
+            onClick={() => alert('보관함 기능은 준비 중입니다.')}
+          >
+            보관함으로
+          </button>
+          <button 
+            className="btn-outline"
+            onClick={handleDelete}
+          >
+            삭제하기
+          </button>
         </div>
       </div>
     </div>
