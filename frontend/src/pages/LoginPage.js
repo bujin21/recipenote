@@ -1,28 +1,43 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import AuthService from '../services/auth.service';
 import '../styles/Auth.css';
 
 function LoginPage() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     username: '',
     password: ''
   });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
     });
+    setError(''); // 입력 시 에러 초기화
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('로그인:', formData);
-    // TODO: API 호출
+    setError('');
+    setLoading(true);
+
+    try {
+      await AuthService.login(formData);
+      // 로그인 성공 - 대시보드로 이동
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.error?.message || '로그인에 실패했습니다');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoogleLogin = () => {
-    console.log('Google 로그인');
-    // TODO: Google OAuth
+    alert('Google 로그인은 준비 중입니다.');
   };
 
   return (
@@ -38,6 +53,20 @@ function LoginPage() {
 
         <div className="divider">또는</div>
 
+        {error && (
+          <div style={{
+            padding: '12px',
+            background: '#FEE',
+            color: '#C53030',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            fontSize: '14px',
+            fontWeight: '500'
+          }}>
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>아이디</label>
@@ -48,6 +77,7 @@ function LoginPage() {
               onChange={handleChange}
               placeholder="아이디를 입력하세요"
               required
+              disabled={loading}
             />
           </div>
 
@@ -60,17 +90,23 @@ function LoginPage() {
               onChange={handleChange}
               placeholder="비밀번호를 입력하세요"
               required
+              disabled={loading}
             />
           </div>
 
-          <button type="submit" className="btn-primary">
-            로그인
+          <button 
+            type="submit" 
+            className="btn-primary"
+            disabled={loading}
+          >
+            {loading ? '로그인 중...' : '로그인'}
           </button>
 
           <button
             type="button"
             className="btn-secondary"
-            onClick={() => window.location.href = '/register'}
+            onClick={() => navigate('/register')}
+            disabled={loading}
           >
             회원가입
           </button>
