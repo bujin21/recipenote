@@ -1,0 +1,219 @@
+.recipe-form-container {
+  min-height: 100vh;
+  background: white;
+}
+
+.recipe-form-content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px;
+}
+
+.recipe-form {
+  width: 100%;
+}
+
+.url-section {
+  background: linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%);
+  padding: 32px;
+  border-radius: 16px;
+  margin-bottom: 40px;
+  border: 3px dashed #0EA5E9;
+  text-align: center;
+}
+
+.url-section h3 {
+  font-size: 22px;
+  margin-bottom: 12px;
+  color: #0C4A6E;
+}
+
+.url-section p {
+  color: #075985;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+
+.form-group textarea {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  font-size: 16px;
+  transition: all 0.3s;
+  font-family: 'Noto Sans KR', sans-serif;
+  resize: vertical;
+}
+
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1);
+}
+
+.form-group select {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  font-size: 16px;
+  transition: all 0.3s;
+  font-family: 'Noto Sans KR', sans-serif;
+  background: white;
+  cursor: pointer;
+}
+
+.form-group select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1);
+}
+
+.ingredient-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: var(--bg-light);
+  border-radius: 10px;
+  margin-bottom: 10px;
+  border: 2px solid var(--border);
+  font-weight: 500;
+}
+
+.ingredient-input-group {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.ingredient-input-group input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+.btn-delete,
+.btn-add {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.btn-delete {
+  background: #FEE;
+  color: #C53030;
+}
+
+.btn-delete:hover {
+  background: #FCC;
+}
+
+.btn-add {
+  background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%);
+  color: white;
+  padding: 12px 24px;
+}
+
+.btn-add:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 40px;
+}
+
+.action-buttons .btn-primary {
+  flex: 1;
+}
+
+/* 모달 */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-content {
+  background: white;
+  padding: 48px;
+  border-radius: 20px;
+  max-width: 540px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-title {
+  font-size: 28px;
+  margin-bottom: 12px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.modal-subtitle {
+  color: var(--text-gray);
+  margin-bottom: 24px;
+  font-weight: 500;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.modal-buttons .btn-primary,
+.modal-buttons .btn-secondary {
+  flex: 1;
+}
+
+/* 로딩 */
+.loading {
+  text-align: center;
+  padding: 40px;
+}
+
+.loading h3 {
+  font-size: 22px;
+  margin-bottom: 12px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.loading p {
+  color: var(--text-gray);
+  font-weight: 500;
+}
