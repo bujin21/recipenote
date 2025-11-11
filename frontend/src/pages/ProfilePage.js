@@ -1,14 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import AuthService from '../services/auth.service';
 import '../styles/Profile.css';
 
 function ProfilePage() {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  
   const [formData, setFormData] = useState({
-    name: '홍길동',
-    email: 'hong@gmail.com'
+    name: '',
+    email: ''
   });
 
-  const [allergies, setAllergies] = useState(['갑각류']);
-  const [dietaryRestrictions, setDietaryRestrictions] = useState(['채식']);
+  const [allergies, setAllergies] = useState([]);
+  const [dietaryRestrictions, setDietaryRestrictions] = useState([]);
+
+  useEffect(() => {
+    // 인증 확인
+    if (!AuthService.isAuthenticated()) {
+      navigate('/login');
+      return;
+    }
+
+    // 사용자 정보 불러오기
+    loadUserProfile();
+  }, [navigate]);
+
+  const loadUserProfile = async () => {
+    try {
+      const response = await AuthService.getCurrentUser();
+      
+      if (response.success) {
+        const user = response.data;
+        setFormData({
+          name: user.name || '',
+          email: user.email || ''
+        });
+        setAllergies(user.allergies || []);
+        setDietaryRestrictions(user.dietaryRestrictions || []);
+      }
+    } catch (error) {
+      console.error('프로필 로드 실패:', error);
+      // 로컬 스토리지에서 가져오기
+      const user = AuthService.getUser();
+      if (user) {
+        setFormData({
+          name: user.name || '',
+          email: user.email || ''
+        });
+        setAllergies(user.allergies || []);
+        setDietaryRestrictions(user.dietaryRestrictions || []);
+      }
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({
@@ -17,10 +61,35 @@ function ProfilePage() {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('프로필 저장:', formData, allergies, dietaryRestrictions);
-    alert('프로필이 저장되었습니다!');
+    setLoading(true);
+
+    try {
+      // TODO: 프로필 업데이트 API 호출
+      // const response = await UserService.updateProfile({
+      //   ...formData,
+      //   allergies,
+      //   dietaryRestrictions
+      // });
+
+      // 임시로 로컬 스토리지 업데이트
+      const user = AuthService.getUser();
+      const updatedUser = {
+        ...user,
+        ...formData,
+        allergies,
+        dietaryRestrictions
+      };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+
+      alert('프로필이 저장되었습니다!');
+    } catch (error) {
+      console.error('프로필 저장 실패:', error);
+      alert('프로필 저장에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const allergyOptions = ['땅콩', '갑각류', '견과류', '유제품', '계란', '밀'];
@@ -42,6 +111,12 @@ function ProfilePage() {
     );
   };
 
+  const handleLogout = () => {
+    if (window.confirm('로그아웃 하시겠습니까?')) {
+      AuthService.logout();
+    }
+  };
+
   return (
     <div className="profile-container">
       {/* 헤더 */}
@@ -50,7 +125,7 @@ function ProfilePage() {
         <nav className="nav">
           <a href="/dashboard">내 레시피</a>
           <a href="/profile">프로필</a>
-          <a href="/login">로그아웃</a>
+          <a onClick={handleLogout} style={{ cursor: 'pointer' }}>로그아웃</a>
         </nav>
       </header>
 
@@ -72,6 +147,7 @@ function ProfilePage() {
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
+                disabled={loading}
               />
             </div>
 
@@ -95,6 +171,7 @@ function ProfilePage() {
                     type="checkbox"
                     checked={allergies.includes(allergy)}
                     onChange={() => toggleAllergy(allergy)}
+                    disabled={loading}
                   />
                   {allergy}
                 </label>
@@ -109,14 +186,19 @@ function ProfilePage() {
                     type="checkbox"
                     checked={dietaryRestrictions.includes(diet)}
                     onChange={() => toggleDiet(diet)}
+                    disabled={loading}
                   />
                   {diet}
                 </label>
               ))}
             </div>
 
-            <button type="submit" className="btn-primary">
-              저장하기
+            <button 
+              type="submit" 
+              className="btn-primary"
+              disabled={loading}
+            >
+              {loading ? '저장 중...' : '저장하기'}
             </button>
           </form>
         </div>
