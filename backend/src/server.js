@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const routes = require('./routes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -40,10 +41,25 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       health: '/api/v1/health',
-      docs: '/api/v1/docs'
+      auth: {
+        register: 'POST /api/v1/auth/register',
+        login: 'POST /api/v1/auth/login',
+        me: 'GET /api/v1/auth/me'
+      },
+      recipes: {
+        list: 'GET /api/v1/recipes',
+        create: 'POST /api/v1/recipes',
+        get: 'GET /api/v1/recipes/:id',
+        update: 'PUT /api/v1/recipes/:id',
+        delete: 'DELETE /api/v1/recipes/:id',
+        search: 'GET /api/v1/recipes/search?q=keyword'
+      }
     }
   });
 });
+
+// API Routes
+app.use('/api/v1', routes);
 
 // 404 handler
 app.use((req, res) => {
