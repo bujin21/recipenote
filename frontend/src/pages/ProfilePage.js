@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AuthService from '../services/auth.service';
 import '../styles/Profile.css';
 
 function ProfilePage() {
@@ -9,7 +8,8 @@ function ProfilePage() {
   
   const [formData, setFormData] = useState({
     name: '',
-    email: ''
+    email: '',
+    username: ''
   });
 
   const [allergies, setAllergies] = useState([]);
@@ -17,7 +17,8 @@ function ProfilePage() {
 
   useEffect(() => {
     // 인증 확인
-    if (!AuthService.isAuthenticated()) {
+    const token = localStorage.getItem('token');
+    if (!token) {
       navigate('/login');
       return;
     }
@@ -26,31 +27,21 @@ function ProfilePage() {
     loadUserProfile();
   }, [navigate]);
 
-  const loadUserProfile = async () => {
+  const loadUserProfile = () => {
     try {
-      const response = await AuthService.getCurrentUser();
-      
-      if (response.success) {
-        const user = response.data;
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
         setFormData({
           name: user.name || '',
-          email: user.email || ''
+          email: user.email || '',
+          username: user.username || ''
         });
         setAllergies(user.allergies || []);
         setDietaryRestrictions(user.dietaryRestrictions || []);
       }
     } catch (error) {
       console.error('프로필 로드 실패:', error);
-      // 로컬 스토리지에서 가져오기
-      const user = AuthService.getUser();
-      if (user) {
-        setFormData({
-          name: user.name || '',
-          email: user.email || ''
-        });
-        setAllergies(user.allergies || []);
-        setDietaryRestrictions(user.dietaryRestrictions || []);
-      }
     }
   };
 
@@ -66,22 +57,18 @@ function ProfilePage() {
     setLoading(true);
 
     try {
-      // TODO: 프로필 업데이트 API 호출
-      // const response = await UserService.updateProfile({
-      //   ...formData,
-      //   allergies,
-      //   dietaryRestrictions
-      // });
-
-      // 임시로 로컬 스토리지 업데이트
-      const user = AuthService.getUser();
-      const updatedUser = {
-        ...user,
-        ...formData,
-        allergies,
-        dietaryRestrictions
-      };
-      localStorage.setItem('user', JSON.stringify(updatedUser));
+      // 로컬 스토리지 업데이트
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        const updatedUser = {
+          ...user,
+          ...formData,
+          allergies,
+          dietaryRestrictions
+        };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+      }
 
       alert('프로필이 저장되었습니다!');
     } catch (error) {
@@ -113,7 +100,9 @@ function ProfilePage() {
 
   const handleLogout = () => {
     if (window.confirm('로그아웃 하시겠습니까?')) {
-      AuthService.logout();
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/login');
     }
   };
 
@@ -140,6 +129,17 @@ function ProfilePage() {
           <div className="profile-avatar">👤</div>
 
           <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label>아이디</label>
+              <input
+                type="text"
+                name="username"
+                value={formData.username}
+                disabled
+                style={{ background: '#F7F9FC' }}
+              />
+            </div>
+
             <div className="form-group">
               <label>이름</label>
               <input

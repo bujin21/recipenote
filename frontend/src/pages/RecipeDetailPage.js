@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import AuthService from '../services/auth.service';
-import RecipeService from '../services/recipe.service';
+import { getRecipe, deleteRecipe } from '../api/recipes';
 import '../styles/RecipeDetail.css';
 
 function RecipeDetailPage() {
@@ -12,7 +11,8 @@ function RecipeDetailPage() {
 
   useEffect(() => {
     // 인증 확인
-    if (!AuthService.isAuthenticated()) {
+    const token = localStorage.getItem('token');
+    if (!token) {
       navigate('/login');
       return;
     }
@@ -23,7 +23,7 @@ function RecipeDetailPage() {
   const loadRecipe = async () => {
     try {
       setLoading(true);
-      const response = await RecipeService.getRecipe(id);
+      const response = await getRecipe(id);
       
       if (response.success) {
         setRecipe(response.data);
@@ -43,7 +43,7 @@ function RecipeDetailPage() {
     }
 
     try {
-      const response = await RecipeService.deleteRecipe(id);
+      const response = await deleteRecipe(id);
       
       if (response.success) {
         alert('레시피가 삭제되었습니다.');
@@ -55,9 +55,15 @@ function RecipeDetailPage() {
     }
   };
 
+  const handleEdit = () => {
+    navigate(`/recipes/${id}/edit`);
+  };
+
   const handleLogout = () => {
     if (window.confirm('로그아웃 하시겠습니까?')) {
-      AuthService.logout();
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/login');
     }
   };
 
@@ -128,8 +134,8 @@ function RecipeDetailPage() {
           </div>
           {recipe.tags && recipe.tags.length > 0 && (
             <div className="tags">
-              {recipe.tags.map((tag) => (
-                <span key={tag} className="tag">{tag}</span>
+              {recipe.tags.map((tag, index) => (
+                <span key={index} className="tag">{tag}</span>
               ))}
             </div>
           )}
@@ -154,8 +160,7 @@ function RecipeDetailPage() {
         <div className="ingredients-list">
           {recipe.ingredients && recipe.ingredients.map((ingredient, index) => (
             <div key={index} className="ingredient-item">
-              <span>{ingredient.name}</span>
-              <span>{ingredient.amount}</span>
+              <span>{ingredient}</span>
             </div>
           ))}
         </div>
@@ -173,7 +178,7 @@ function RecipeDetailPage() {
         <div className="action-buttons">
           <button 
             className="btn-primary" 
-            onClick={() => alert('수정 기능은 준비 중입니다.')}
+            onClick={handleEdit}
           >
             수정하기
           </button>

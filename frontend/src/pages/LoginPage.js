@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AuthService from '../services/auth.service';
+import { login } from '../api/auth';
 import '../styles/Auth.css';
 
 function LoginPage() {
@@ -17,20 +17,33 @@ function LoginPage() {
       ...formData,
       [e.target.name]: e.target.value
     });
-    setError(''); // 입력 시 에러 초기화
+    setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    console.log('Form submitted:', formData); // 디버깅
+    
     setError('');
     setLoading(true);
 
     try {
-      await AuthService.login(formData);
-      // 로그인 성공 - 대시보드로 이동
-      navigate('/dashboard');
+      console.log('Calling login API...'); // 디버깅
+      const response = await login(formData);
+      
+      console.log('Login response:', response); // 디버깅
+      
+      if (response && response.success) {
+        console.log('Login successful, navigating to dashboard...'); // 디버깅
+        window.location.href = '/dashboard';  // 강제 리다이렉션
+      } else {
+        console.error('Login failed: success is false'); // 디버깅
+        setError('로그인에 실패했습니다.');
+      }
     } catch (err) {
-      setError(err.error?.message || '로그인에 실패했습니다');
+      console.error('Login error:', err); // 디버깅
+      setError(err.response?.data?.error?.message || '로그인에 실패했습니다');
     } finally {
       setLoading(false);
     }
@@ -46,8 +59,12 @@ function LoginPage() {
         <h1 className="auth-title">RecipeNote</h1>
         <p className="auth-subtitle">나만의 레시피를 한 곳에서 관리하세요</p>
 
-        <button className="btn-google" onClick={handleGoogleLogin}>
-          <span className="google-icon">🔵</span>
+        <button className="btn-google" onClick={handleGoogleLogin} type="button">
+          <img 
+            src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
+            alt="Google"
+            style={{ width: '20px', height: '20px' }}
+          />
           Google로 시작하기
         </button>
 

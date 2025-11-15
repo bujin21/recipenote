@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AuthService from '../services/auth.service';
-import RecipeService from '../services/recipe.service';
+import { getRecipes, deleteRecipe } from '../api/recipes';
 import '../styles/Dashboard.css';
 
 function DashboardPage() {
@@ -13,31 +12,45 @@ function DashboardPage() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // 인증 확인
-    if (!AuthService.isAuthenticated()) {
-      navigate('/login');
-      return;
-    }
+  // 인증 확인
+  const token = localStorage.getItem('token');
+  const user = localStorage.getItem('user');
+  
+  console.log('Dashboard - Token:', token); // 디버깅
+  console.log('Dashboard - User:', user); // 디버깅
+  
+  if (!token) {
+    console.log('No token, redirecting to login...'); // 디버깅
+    navigate('/login');
+    return;
+  }
 
-    // 사용자 정보 가져오기
-    const userData = AuthService.getUser();
-    setUser(userData);
+  // 사용자 정보 가져오기
+  if (user) {
+    setUser(JSON.parse(user));
+  }
 
-    // 레시피 목록 가져오기
-    loadRecipes();
-  }, [navigate]);
+  // 레시피 목록 가져오기
+  loadRecipes();
+}, [navigate]);
 
   const loadRecipes = async () => {
     try {
       setLoading(true);
-      const response = await RecipeService.getRecipes();
+      const response = await getRecipes();
       
       if (response.success) {
         setRecipes(response.data.recipes || []);
       }
     } catch (error) {
       console.error('레시피 로드 실패:', error);
-      alert('레시피를 불러오는데 실패했습니다.');
+      if (error.response?.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        navigate('/login');
+      } else {
+        alert('레시피를 불러오는데 실패했습니다.');
+      }
     } finally {
       setLoading(false);
     }
@@ -45,12 +58,31 @@ function DashboardPage() {
 
   const handleLogout = () => {
     if (window.confirm('로그아웃 하시겠습니까?')) {
-      AuthService.logout();
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/login');
     }
   };
 
   const handleRecipeClick = (recipeId) => {
-    navigate(`/recipe/${recipeId}`);
+    navigate(`/recipes/${recipeId}`);
+  };
+
+  const handleDelete = async (recipeId, e) => {
+    e.stopPropagation();
+    
+    if (!window.confirm('정말 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      await deleteRecipe(recipeId);
+      setRecipes(recipes.filter(recipe => recipe.recipeId !== recipeId));
+      alert('레시피가 삭제되었습니다.');
+    } catch (error) {
+      console.error('삭제 실패:', error);
+      alert('삭제에 실패했습니다.');
+    }
   };
 
   const handleSearch = async () => {
@@ -59,19 +91,10 @@ function DashboardPage() {
       return;
     }
 
-    try {
-      setLoading(true);
-      const response = await RecipeService.searchRecipes(searchQuery);
-      
-      if (response.success) {
-        setRecipes(response.data || []);
-      }
-    } catch (error) {
-      console.error('검색 실패:', error);
-      alert('검색에 실패했습니다.');
-    } finally {
-      setLoading(false);
-    }
+    const filtered = recipes.filter(recipe =>
+      recipe.title.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    setRecipes(filtered);
   };
 
   const filters = ['전체', '🍽️ 메인 요리', '🥗 반찬', '🍜 국/찌개', '🍰 디저트', '⚡ 30분 이내', '😊 쉬움'];
@@ -202,7 +225,7 @@ function DashboardPage() {
       </div>
 
       {/* FAB 버튼 */}
-      <button className="fab" onClick={() => navigate('/recipe/new')}>
+      <button className="fab" onClick={() => navigate('/recipes/new')}>
         +
       </button>
     </div>

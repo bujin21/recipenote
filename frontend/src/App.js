@@ -16,8 +16,9 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/recipe/:id" element={<RecipeDetailPage />} />
-        <Route path="/recipe/new" element={<RecipeFormPage />} />
+        <Route path="/recipes/:id" element={<RecipeDetailPage />} />
+        <Route path="/recipes/:id/edit" element={<RecipeFormPage />} />
+        <Route path="/recipes/new" element={<RecipeFormPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<div style={{padding: '40px', textAlign: 'center'}}>404 - 페이지를 찾을 수 없습니다</div>} />
       </Routes>

@@ -1,37 +1,76 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import AuthService from '../services/auth.service';
-import RecipeService from '../services/recipe.service';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { getRecipe, createRecipe, updateRecipe } from '../api/recipes';
 import '../styles/RecipeForm.css';
 
 function RecipeFormPage() {
   const navigate = useNavigate();
-  const [showUrlModal, setShowUrlModal] = useState(false);
-  const [isParsing, setIsParsing] = useState(false);
-  const [loading, setLoading] = useState(false);
-  
+  const { id } = useParams();
+  const isEditMode = !!id;
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     category: '',
-    cuisine: '',
     difficulty: '쉬움',
     cookingTime: '',
     servings: '',
-    tags: []
+    tags: ''
   });
 
   const [ingredients, setIngredients] = useState([]);
   const [newIngredient, setNewIngredient] = useState({ name: '', amount: '' });
   
   const [steps, setSteps] = useState(['']);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   // 로그인 확인
-  React.useEffect(() => {
-    if (!AuthService.isAuthenticated()) {
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
       navigate('/login');
+      return;
     }
-  }, [navigate]);
+
+    if (isEditMode) {
+      loadRecipe();
+    }
+  }, [navigate, id]);
+
+  const loadRecipe = async () => {
+    try {
+      const response = await getRecipe(id);
+      
+      if (response.success) {
+        const recipe = response.data;
+        setFormData({
+          title: recipe.title,
+          description: recipe.description || '',
+          category: recipe.category,
+          difficulty: recipe.difficulty,
+          cookingTime: recipe.cookingTime.toString(),
+          servings: recipe.servings?.toString() || '2',
+          tags: recipe.tags?.join(', ') || ''
+        });
+
+        // 재료 파싱 (문자열 → 객체)
+        const parsedIngredients = recipe.ingredients.map(ing => {
+          const parts = ing.split(' ');
+          const amount = parts[parts.length - 1];
+          const name = parts.slice(0, -1).join(' ');
+          return { name, amount };
+        });
+        setIngredients(parsedIngredients);
+
+        setSteps(recipe.steps);
+      }
+    } catch (err) {
+      console.error('레시피 로드 실패:', err);
+      alert('레시피를 불러오는데 실패했습니다.');
+      navigate('/dashboard');
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({
@@ -82,44 +121,42 @@ function RecipeFormPage() {
     }
 
     setLoading(true);
+    setError('');
 
     try {
       const recipeData = {
         ...formData,
         cookingTime: parseInt(formData.cookingTime),
         servings: parseInt(formData.servings) || 1,
-        ingredients,
+        ingredients: ingredients.map(ing => `${ing.name} ${ing.amount}`),
         steps: steps.filter(s => s.trim()),
         tags: formData.tags ? formData.tags.split(',').map(t => t.trim()) : []
       };
 
-      const response = await RecipeService.createRecipe(recipeData);
+      let response;
+      if (isEditMode) {
+        response = await updateRecipe(id, recipeData);
+      } else {
+        response = await createRecipe(recipeData);
+      }
 
       if (response.success) {
-        alert('레시피가 저장되었습니다!');
+        alert(isEditMode ? '레시피가 수정되었습니다!' : '레시피가 저장되었습니다!');
         navigate('/dashboard');
       }
     } catch (error) {
       console.error('레시피 저장 실패:', error);
-      alert(error.error?.message || '레시피 저장에 실패했습니다.');
+      setError(error.response?.data?.error?.message || '레시피 저장에 실패했습니다.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUrlParsing = () => {
-    setShowUrlModal(false);
-    setIsParsing(true);
-    
-    setTimeout(() => {
-      setIsParsing(false);
-      alert('URL 파싱 기능은 준비 중입니다.');
-    }, 2000);
-  };
-
   const handleLogout = () => {
     if (window.confirm('로그아웃 하시겠습니까?')) {
-      AuthService.logout();
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/login');
     }
   };
 
@@ -139,18 +176,21 @@ function RecipeFormPage() {
       <div className="recipe-form-content">
         <div className="recipe-form">
           <div className="page-header">
-            <h1 className="page-title">새 레시피 추가</h1>
-            <p className="page-subtitle">URL로 자동 채우거나 직접 입력하세요</p>
+            <h1 className="page-title">{isEditMode ? '레시피 수정' : '새 레시피 추가'}</h1>
+            <p className="page-subtitle">레시피를 직접 입력하세요</p>
           </div>
 
-          {/* URL 자동 채우기 섹션 */}
-          <div className="url-section">
-            <h3>🔗 URL로 자동 채우기</h3>
-            <p>YouTube, 블로그 레시피 URL을 입력하면 AI가 자동으로 채워드려요!</p>
-            <button className="btn-primary" onClick={() => setShowUrlModal(true)}>
-              URL 입력하기
-            </button>
-          </div>
+          {error && (
+            <div style={{
+              padding: '12px',
+              background: '#FEE',
+              color: '#C53030',
+              borderRadius: '8px',
+              marginBottom: '20px'
+            }}>
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit}>
             <div className="form-group">
@@ -301,6 +341,18 @@ function RecipeFormPage() {
                   disabled={loading}
                 />
               </div>
+
+              <div className="form-group">
+                <label>인분</label>
+                <input
+                  type="number"
+                  name="servings"
+                  value={formData.servings}
+                  onChange={handleChange}
+                  placeholder="2"
+                  disabled={loading}
+                />
+              </div>
             </div>
 
             <div className="form-group">
@@ -321,7 +373,7 @@ function RecipeFormPage() {
                 className="btn-primary"
                 disabled={loading}
               >
-                {loading ? '저장 중...' : '저장하기'}
+                {loading ? '저장 중...' : isEditMode ? '수정하기' : '저장하기'}
               </button>
               <button 
                 type="button" 
@@ -335,42 +387,6 @@ function RecipeFormPage() {
           </form>
         </div>
       </div>
-
-      {/* URL 입력 모달 */}
-      {showUrlModal && (
-        <div className="modal" onClick={() => setShowUrlModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">🔗 URL 입력</h2>
-            <p className="modal-subtitle">YouTube, 블로그 레시피 URL을 입력하세요</p>
-            
-            <div className="form-group">
-              <input type="text" placeholder="https://youtube.com/watch?v=..." />
-            </div>
-            
-            <div className="modal-buttons">
-              <button className="btn-primary" onClick={handleUrlParsing}>
-                파싱 시작
-              </button>
-              <button className="btn-secondary" onClick={() => setShowUrlModal(false)}>
-                취소
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 파싱 중 모달 */}
-      {isParsing && (
-        <div className="modal">
-          <div className="modal-content">
-            <div className="loading">
-              <div className="spinner"></div>
-              <h3>AI가 레시피를 분석하고 있습니다...</h3>
-              <p>약 30초 소요됩니다 ☕</p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

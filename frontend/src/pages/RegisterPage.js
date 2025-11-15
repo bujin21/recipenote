@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AuthService from '../services/auth.service';
+import { register } from '../api/auth';
 import '../styles/Auth.css';
 
 function RegisterPage() {
@@ -27,7 +27,6 @@ function RegisterPage() {
     e.preventDefault();
     setError('');
     
-    // 비밀번호 확인
     if (formData.password !== formData.passwordConfirm) {
       setError('비밀번호가 일치하지 않습니다.');
       return;
@@ -37,18 +36,18 @@ function RegisterPage() {
 
     try {
       const { passwordConfirm, ...registerData } = formData;
-      await AuthService.register(registerData);
+      const response = await register(registerData);
       
-      // 회원가입 성공
-      alert('회원가입이 완료되었습니다!');
-      navigate('/dashboard');
+      if (response.success) {
+        alert('회원가입이 완료되었습니다!');
+        navigate('/dashboard');
+      }
     } catch (err) {
-      if (err.error?.details) {
-        // 유효성 검사 에러
-        const errorMessages = err.error.details.map(d => d.message).join('\n');
+      if (err.response?.data?.error?.details) {
+        const errorMessages = err.response.data.error.details.map(d => d.message).join('\n');
         setError(errorMessages);
       } else {
-        setError(err.error?.message || '회원가입에 실패했습니다');
+        setError(err.response?.data?.error?.message || '회원가입에 실패했습니다');
       }
     } finally {
       setLoading(false);
