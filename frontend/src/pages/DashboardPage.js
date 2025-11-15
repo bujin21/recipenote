@@ -7,32 +7,29 @@ function DashboardPage() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('전체');
-  const [recipes, setRecipes] = useState([]);
+  const [allRecipes, setAllRecipes] = useState([]); // 원본 데이터
+  const [recipes, setRecipes] = useState([]); // 필터링된 데이터
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-  // 인증 확인
-  const token = localStorage.getItem('token');
-  const user = localStorage.getItem('user');
-  
-  console.log('Dashboard - Token:', token); // 디버깅
-  console.log('Dashboard - User:', user); // 디버깅
-  
-  if (!token) {
-    console.log('No token, redirecting to login...'); // 디버깅
-    navigate('/login');
-    return;
-  }
+    // 인증 확인
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('No token, redirecting to login...');
+      navigate('/login');
+      return;
+    }
 
-  // 사용자 정보 가져오기
-  if (user) {
-    setUser(JSON.parse(user));
-  }
+    // 사용자 정보 가져오기
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      setUser(JSON.parse(userData));
+    }
 
-  // 레시피 목록 가져오기
-  loadRecipes();
-}, [navigate]);
+    // 레시피 목록 가져오기
+    loadRecipes();
+  }, [navigate]);
 
   const loadRecipes = async () => {
     try {
@@ -40,7 +37,9 @@ function DashboardPage() {
       const response = await getRecipes();
       
       if (response.success) {
-        setRecipes(response.data.recipes || []);
+        const recipeList = response.data.recipes || [];
+        setAllRecipes(recipeList); // 원본 저장
+        setRecipes(recipeList); // 표시용
       }
     } catch (error) {
       console.error('레시피 로드 실패:', error);
@@ -54,6 +53,48 @@ function DashboardPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 필터 적용 함수
+  const applyFilters = (query = searchQuery, filter = activeFilter) => {
+    let filtered = [...allRecipes];
+
+    // 검색어 필터
+    if (query.trim()) {
+      filtered = filtered.filter(recipe =>
+        recipe.title.toLowerCase().includes(query.toLowerCase()) ||
+        recipe.description?.toLowerCase().includes(query.toLowerCase()) ||
+        recipe.ingredients?.some(ing => ing.toLowerCase().includes(query.toLowerCase()))
+      );
+    }
+
+    // 카테고리 필터
+    if (filter !== '전체') {
+      if (filter === '🍽️ 메인 요리') {
+        filtered = filtered.filter(recipe => recipe.category === '메인 요리');
+      } else if (filter === '🥗 반찬') {
+        filtered = filtered.filter(recipe => recipe.category === '반찬');
+      } else if (filter === '🍜 국/찌개') {
+        filtered = filtered.filter(recipe => recipe.category === '국/찌개');
+      } else if (filter === '🍰 디저트') {
+        filtered = filtered.filter(recipe => recipe.category === '디저트');
+      } else if (filter === '⚡ 30분 이내') {
+        filtered = filtered.filter(recipe => recipe.cookingTime <= 30);
+      } else if (filter === '😊 쉬움') {
+        filtered = filtered.filter(recipe => recipe.difficulty === '쉬움');
+      }
+    }
+
+    setRecipes(filtered);
+  };
+
+  const handleSearch = () => {
+    applyFilters(searchQuery, activeFilter);
+  };
+
+  const handleFilterClick = (filter) => {
+    setActiveFilter(filter);
+    applyFilters(searchQuery, filter);
   };
 
   const handleLogout = () => {
@@ -77,24 +118,17 @@ function DashboardPage() {
 
     try {
       await deleteRecipe(recipeId);
+      
+      // 원본과 필터링된 데이터 모두에서 삭제
+      const updatedRecipes = allRecipes.filter(recipe => recipe.recipeId !== recipeId);
+      setAllRecipes(updatedRecipes);
       setRecipes(recipes.filter(recipe => recipe.recipeId !== recipeId));
+      
       alert('레시피가 삭제되었습니다.');
     } catch (error) {
       console.error('삭제 실패:', error);
       alert('삭제에 실패했습니다.');
     }
-  };
-
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      loadRecipes();
-      return;
-    }
-
-    const filtered = recipes.filter(recipe =>
-      recipe.title.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    setRecipes(filtered);
   };
 
   const filters = ['전체', '🍽️ 메인 요리', '🥗 반찬', '🍜 국/찌개', '🍰 디저트', '⚡ 30분 이내', '😊 쉬움'];
@@ -117,19 +151,19 @@ function DashboardPage() {
           <h1 className="page-title">내 레시피</h1>
           <p className="page-subtitle">
             {user ? `안녕하세요, ${user.name}님! ` : ''}
-            {recipes.length}개의 레시피를 저장했어요 🎉
+            {allRecipes.length}개의 레시피를 저장했어요 🎉
           </p>
         </div>
 
         {/* 통계 카드 */}
         <div className="stats-grid">
           <div className="stat-card">
-            <div className="stat-value">{recipes.length}</div>
+            <div className="stat-value">{allRecipes.length}</div>
             <div className="stat-label">전체 레시피</div>
           </div>
           <div className="stat-card">
-            <div className="stat-value">0</div>
-            <div className="stat-label">즐겨찾기</div>
+            <div className="stat-value">{recipes.length}</div>
+            <div className="stat-label">필터링된 레시피</div>
           </div>
           <div className="stat-card">
             <div className="stat-value">0</div>
@@ -156,7 +190,7 @@ function DashboardPage() {
             <button
               key={filter}
               className={`filter-btn ${activeFilter === filter ? 'active' : ''}`}
-              onClick={() => setActiveFilter(filter)}
+              onClick={() => handleFilterClick(filter)}
             >
               {filter}
             </button>
@@ -176,8 +210,14 @@ function DashboardPage() {
             color: '#718096'
           }}>
             <div style={{ fontSize: '64px', marginBottom: '20px' }}>📝</div>
-            <h3 style={{ fontSize: '24px', marginBottom: '12px' }}>아직 레시피가 없습니다</h3>
-            <p>우측 하단의 + 버튼을 눌러 첫 레시피를 추가해보세요!</p>
+            <h3 style={{ fontSize: '24px', marginBottom: '12px' }}>
+              {searchQuery || activeFilter !== '전체' ? '검색 결과가 없습니다' : '아직 레시피가 없습니다'}
+            </h3>
+            <p>
+              {searchQuery || activeFilter !== '전체' 
+                ? '다른 검색어나 필터를 시도해보세요.' 
+                : '우측 하단의 + 버튼을 눌러 첫 레시피를 추가해보세요!'}
+            </p>
           </div>
         ) : (
           <div className="recipe-grid">
@@ -206,8 +246,8 @@ function DashboardPage() {
                   </div>
                   {recipe.tags && recipe.tags.length > 0 && (
                     <div className="tags">
-                      {recipe.tags.slice(0, 2).map((tag) => (
-                        <span key={tag} className="tag">{tag}</span>
+                      {recipe.tags.slice(0, 2).map((tag, idx) => (
+                        <span key={idx} className="tag">{tag}</span>
                       ))}
                     </div>
                   )}

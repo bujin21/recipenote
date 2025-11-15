@@ -36,7 +36,7 @@ function LoginPage() {
       
       if (response && response.success) {
         console.log('Login successful, navigating to dashboard...'); // 디버깅
-        window.location.href = '/dashboard';  // 강제 리다이렉션
+        navigate('/dashboard', { replace: true });  // ← 이렇게 변경
       } else {
         console.error('Login failed: success is false'); // 디버깅
         setError('로그인에 실패했습니다.');
