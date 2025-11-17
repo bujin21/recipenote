@@ -24,3 +24,8 @@ export const deleteRecipe = async (id) => {
   const response = await api.delete(`/recipes/${id}`);
   return response.data;
 };
+// URL 파싱 함수 추가!
+export const parseRecipeUrl = async (url) => {
+  const response = await api.post('/recipes/parse-url', { url });
+  return response.data;
+};

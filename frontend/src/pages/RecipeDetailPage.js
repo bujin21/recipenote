@@ -67,6 +67,24 @@ function RecipeDetailPage() {
     }
   };
 
+  // YouTube URL을 embed URL로 변환
+  const getYouTubeEmbedUrl = (url) => {
+    if (!url) return null;
+    
+    // youtube.com/watch?v=... 형식
+    if (url.includes('watch?v=')) {
+      return url.replace('watch?v=', 'embed/');
+    }
+    
+    // youtu.be/... 형식
+    if (url.includes('youtu.be/')) {
+      const videoId = url.split('youtu.be/')[1].split('?')[0];
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+    
+    return url;
+  };
+
   if (loading) {
     return (
       <div className="recipe-detail-container">
@@ -141,7 +159,60 @@ function RecipeDetailPage() {
           )}
         </div>
 
-        <div className="detail-image">{recipe.emoji || '🍽️'}</div>
+        {/* 레시피 이미지 */}
+        {recipe.imageUrl ? (
+          <div style={{
+            marginBottom: '32px',
+            borderRadius: '16px',
+            overflow: 'hidden',
+            maxWidth: '800px',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+          }}>
+            <img 
+              src={recipe.imageUrl} 
+              alt={recipe.title}
+              style={{ 
+                width: '100%', 
+                height: 'auto',
+                display: 'block'
+              }}
+            />
+          </div>
+        ) : (
+          <div className="detail-image">{recipe.emoji || '🍽️'}</div>
+        )}
+
+        {/* YouTube 영상 */}
+        {recipe.youtubeUrl && (
+          <div style={{
+            marginBottom: '32px',
+            borderRadius: '16px',
+            overflow: 'hidden',
+            maxWidth: '800px',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+          }}>
+            <div style={{
+              position: 'relative',
+              paddingBottom: '56.25%', // 16:9 비율
+              height: 0
+            }}>
+              <iframe
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%'
+                }}
+                src={getYouTubeEmbedUrl(recipe.youtubeUrl)}
+                title="YouTube video"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          </div>
+        )}
 
         {recipe.description && (
           <div style={{ 

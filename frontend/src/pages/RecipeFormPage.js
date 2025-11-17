@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getRecipe, createRecipe, updateRecipe } from '../api/recipes';
+import { getRecipe, createRecipe, updateRecipe, parseRecipeUrl } from '../api/recipes';
 import '../styles/RecipeForm.css';
 
 function RecipeFormPage() {
@@ -10,6 +10,7 @@ function RecipeFormPage() {
 
   const [showUrlModal, setShowUrlModal] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
+  const [urlInput, setUrlInput] = useState(''); 
 
   const [formData, setFormData] = useState({
     title: '',
@@ -18,7 +19,9 @@ function RecipeFormPage() {
     difficulty: '쉬움',
     cookingTime: '',
     servings: '',
-    tags: ''
+    tags: '',
+    imageUrl: '',
+  youtubeUrl: ''     
   });
 
   const [ingredients, setIngredients] = useState([]);
@@ -27,6 +30,8 @@ function RecipeFormPage() {
   const [steps, setSteps] = useState(['']);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [imageFile, setImageFile] = useState(null);        
+  const [imagePreview, setImagePreview] = useState(null); 
 
   // 로그인 확인
   useEffect(() => {
@@ -109,15 +114,116 @@ function RecipeFormPage() {
     }
   };
 
-  const handleUrlParsing = () => {
-    setShowUrlModal(false);
-    setIsParsing(true);
-    
-    setTimeout(() => {
-      setIsParsing(false);
-      alert('URL 파싱 기능은 준비 중입니다.');
-    }, 2000);
-  };
+  
+// URL 파싱 핸들러
+const handleUrlParsing = async () => {
+  if (!urlInput.trim()) {
+    alert('URL을 입력해주세요.');
+    return;
+  }
+
+  setShowUrlModal(false);
+  setIsParsing(true);
+
+  try {
+    const response = await parseRecipeUrl(urlInput);
+
+    if (response.success) {
+      const data = response.data;
+
+      // YouTube든 블로그든 모두 같은 방식으로 처리!
+      // AI가 추출한 레시피 정보로 폼 채우기
+      setFormData({
+        ...formData,
+        title: data.title || '',
+        description: data.description || '',
+        category: data.category || '',
+        difficulty: data.difficulty || '쉬움',
+        cookingTime: data.cookingTime?.toString() || '',
+        servings: data.servings?.toString() || '2',
+        tags: data.tags?.join(', ') || '',
+        youtubeUrl: data.youtubeUrl || ''  // YouTube URL도 자동으로!
+      });
+
+      // 재료 설정
+      if (data.ingredients && data.ingredients.length > 0) {
+        const parsedIngredients = data.ingredients.map(ing => {
+          const parts = ing.split(' ');
+          const amount = parts[parts.length - 1];
+          const name = parts.slice(0, -1).join(' ');
+          return { name, amount };
+        });
+        setIngredients(parsedIngredients);
+      }
+
+      // 조리 순서 설정
+      if (data.steps && data.steps.length > 0) {
+        setSteps(data.steps);
+      }
+
+      // 성공 메시지
+      if (data.sourceType === 'youtube') {
+        alert('YouTube 영상이 연결되었습니다! 영상을 보며 내용을 수정해주세요.');
+      } else {
+        alert('레시피가 자동으로 채워졌습니다! 확인 후 수정해주세요.');
+      }
+
+      setUrlInput('');
+    }
+  } catch (error) {
+    console.error('URL 파싱 실패:', error);
+    alert(error.response?.data?.error?.message || 'URL 파싱에 실패했습니다. 다시 시도해주세요.');
+  } finally {
+    setIsParsing(false);
+  }
+};
+
+  // 이미지 파일 선택 핸들러
+const handleImageChange = (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    // 파일 크기 체크 (5MB 제한)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('이미지 크기는 5MB 이하여야 합니다.');
+      return;
+    }
+
+    // 파일 타입 체크
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일만 업로드 가능합니다.');
+      return;
+    }
+
+    setImageFile(file);
+
+    // 미리보기 생성
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
+// 이미지 S3 업로드 함수
+const uploadImageToS3 = async (file) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // 임시: 일단 base64로 저장 (나중에 S3 Pre-signed URL 사용)
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        resolve(reader.result);
+      };
+      reader.readAsDataURL(file);
+    });
+  } catch (error) {
+    console.error('이미지 업로드 실패:', error);
+    throw error;
+  }
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -137,13 +243,21 @@ function RecipeFormPage() {
     setError('');
 
     try {
+      // 이미지 업로드 (있을 경우)
+      let imageUrl = formData.imageUrl;
+      if (imageFile) {
+        imageUrl = await uploadImageToS3(imageFile);
+      }
+
       const recipeData = {
         ...formData,
         cookingTime: parseInt(formData.cookingTime),
         servings: parseInt(formData.servings) || 1,
         ingredients: ingredients.map(ing => `${ing.name} ${ing.amount}`),
         steps: steps.filter(s => s.trim()),
-        tags: formData.tags ? formData.tags.split(',').map(t => t.trim()) : []
+        tags: formData.tags ? formData.tags.split(',').map(t => t.trim()) : [],
+        imageUrl: imageUrl || null,           
+        youtubeUrl: formData.youtubeUrl || null  
       };
 
       let response;
@@ -230,6 +344,48 @@ function RecipeFormPage() {
                 onChange={handleChange}
                 placeholder="레시피 제목을 입력하세요"
                 required
+                disabled={loading}
+              />
+            </div>
+
+            {/* 이미지 업로드 섹션 - 추가! */}
+            <div className="form-group">
+              <label>🖼️ 대표 이미지</label>
+              {imagePreview && (
+                <div style={{ 
+                  marginBottom: '12px', 
+                  borderRadius: '8px', 
+                  overflow: 'hidden',
+                  maxWidth: '300px'
+                }}>
+                  <img 
+                    src={imagePreview} 
+                    alt="미리보기" 
+                    style={{ width: '100%', height: 'auto' }}
+                  />
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                disabled={loading}
+                style={{ marginBottom: '8px' }}
+              />
+              <p style={{ fontSize: '14px', color: '#718096', margin: 0 }}>
+                JPG, PNG, GIF (최대 5MB)
+              </p>
+            </div>
+
+            {/* YouTube URL 입력 - 추가! */}
+            <div className="form-group">
+              <label>📺 YouTube URL (선택)</label>
+              <input
+                type="url"
+                name="youtubeUrl"
+                value={formData.youtubeUrl}
+                onChange={handleChange}
+                placeholder="https://youtube.com/watch?v=..."
                 disabled={loading}
               />
             </div>
@@ -416,7 +572,7 @@ function RecipeFormPage() {
         </div>
       </div>
 
-      {/* URL 입력 모달 */}
+      {/* URL 입력 모달 - 수정! */}
       {showUrlModal && (
         <div className="modal" onClick={() => setShowUrlModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -424,14 +580,38 @@ function RecipeFormPage() {
             <p className="modal-subtitle">YouTube, 블로그 레시피 URL을 입력하세요</p>
             
             <div className="form-group">
-              <input type="text" placeholder="https://youtube.com/watch?v=..." />
+              <input 
+                type="url" 
+                placeholder="https://youtube.com/watch?v=..." 
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                autoFocus
+              />
+            </div>
+            
+            <div style={{ 
+              padding: '12px', 
+              background: '#E6F7FF', 
+              borderRadius: '8px',
+              fontSize: '14px',
+              marginBottom: '20px'
+            }}>
+              <strong>💡 지원 사이트:</strong>
+              <ul style={{ margin: '8px 0 0 20px', lineHeight: '1.6' }}>
+                <li>YouTube (영상 링크 메타 정보 저장)</li>
+                <li>티스토리 (AI 자동 추출)</li>
+                <li>기타 웹사이트 (AI 자동 추출)</li>
+              </ul>
             </div>
             
             <div className="modal-buttons">
               <button className="btn-primary" onClick={handleUrlParsing}>
                 파싱 시작
               </button>
-              <button className="btn-secondary" onClick={() => setShowUrlModal(false)}>
+              <button className="btn-secondary" onClick={() => {
+                setShowUrlModal(false);
+                setUrlInput('');
+              }}>
                 취소
               </button>
             </div>
