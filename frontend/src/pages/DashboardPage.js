@@ -228,26 +228,45 @@ function DashboardPage() {
                 onClick={() => handleRecipeClick(recipe.recipeId)}
               >
                 <div className="recipe-image" style={{
-                  background: index % 4 === 0 ? 'linear-gradient(135deg, #FFE66D 0%, #FFD93D 100%)' :
-                             index % 4 === 1 ? 'linear-gradient(135deg, #FF9A9E 0%, #FAD0C4 100%)' :
-                             index % 4 === 2 ? 'linear-gradient(135deg, #A8EDEA 0%, #FED6E3 100%)' :
-                             'linear-gradient(135deg, #C3E7FF 0%, #A8D8EA 100%)'
+                  background: recipe.imageUrl 
+                    ? `url(${recipe.imageUrl}) center/cover` 
+                    : (index % 4 === 0 ? 'linear-gradient(135deg, #FFE66D 0%, #FFD93D 100%)' :
+                      index % 4 === 1 ? 'linear-gradient(135deg, #FF9A9E 0%, #FAD0C4 100%)' :
+                      index % 4 === 2 ? 'linear-gradient(135deg, #A8EDEA 0%, #FED6E3 100%)' :
+                      'linear-gradient(135deg, #C3E7FF 0%, #A8D8EA 100%)')
                 }}>
-                  {recipe.emoji || '🍽️'}
+                  {!recipe.imageUrl && (recipe.emoji || '🍽️')}
+                  
+                  {/* YouTube 배지 */}
+                  {recipe.youtubeUrl && (
+                    <div className="recipe-youtube-badge">
+                      📺 YouTube
+                    </div>
+                  )}
+                  
                   <div className="recipe-favorite">
                     🤍
                   </div>
                 </div>
+                
                 <div className="recipe-content">
                   <div className="recipe-title">{recipe.title}</div>
+                  
+                  {/* 설명 추가 */}
+                  {recipe.description && (
+                    <p className="recipe-description">{recipe.description}</p>
+                  )}
+                  
                   <div className="recipe-meta">
                     <span>⏱️ {recipe.cookingTime}분</span>
-                    <span>👤 {recipe.difficulty}</span>
+                    <span>👥 {recipe.servings}인분</span>
+                    <span>📊 {recipe.difficulty}</span>
                   </div>
+                  
                   {recipe.tags && recipe.tags.length > 0 && (
                     <div className="tags">
-                      {recipe.tags.slice(0, 2).map((tag, idx) => (
-                        <span key={idx} className="tag">{tag}</span>
+                      {recipe.tags.slice(0, 3).map((tag, idx) => (
+                        <span key={idx} className="tag">#{tag}</span>
                       ))}
                     </div>
                   )}

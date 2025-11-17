@@ -323,3 +323,88 @@
   transform: scale(1.1) rotate(90deg);
   box-shadow: 0 12px 32px rgba(255, 107, 107, 0.5);
 }
+
+/* YouTube 배지 - 추가 */
+.recipe-youtube-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: #ff0000;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 2;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* 레시피 설명 - 추가 */
+.recipe-description {
+  color: #718096;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 8px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* recipe-meta 수정 - 기존 것 교체 */
+.recipe-meta {
+  display: flex;
+  gap: 12px;
+  color: var(--text-gray);
+  font-size: 14px;
+  margin-bottom: 12px;
+  font-weight: 500;
+  flex-wrap: wrap;
+}
+
+.recipe-meta span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* tags 수정 - 기존 것 교체 */
+.tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.tag {
+  padding: 4px 10px;
+  background: #e6e9ff;
+  color: #667eea;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* recipe-image 개선 - 배경 이미지 지원 */
+.recipe-image {
+  width: 100%;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 64px;
+  position: relative;
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
+}
+
+.recipe-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

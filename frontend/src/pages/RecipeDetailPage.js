@@ -10,13 +10,11 @@ function RecipeDetailPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 인증 확인
     const token = localStorage.getItem('token');
     if (!token) {
       navigate('/login');
       return;
     }
-
     loadRecipe();
   }, [id, navigate]);
 
@@ -24,6 +22,13 @@ function RecipeDetailPage() {
     try {
       setLoading(true);
       const response = await getRecipe(id);
+      
+      // 디버깅 로그
+      console.log('========== 상세 페이지 디버깅 ==========');
+      console.log('API 응답:', response);
+      console.log('imageUrl:', response.data?.imageUrl);
+      console.log('youtubeUrl:', response.data?.youtubeUrl);
+      console.log('=======================================');
       
       if (response.success) {
         setRecipe(response.data);
@@ -67,16 +72,13 @@ function RecipeDetailPage() {
     }
   };
 
-  // YouTube URL을 embed URL로 변환
   const getYouTubeEmbedUrl = (url) => {
     if (!url) return null;
     
-    // youtube.com/watch?v=... 형식
     if (url.includes('watch?v=')) {
       return url.replace('watch?v=', 'embed/');
     }
     
-    // youtu.be/... 형식
     if (url.includes('youtu.be/')) {
       const videoId = url.split('youtu.be/')[1].split('?')[0];
       return `https://www.youtube.com/embed/${videoId}`;
@@ -127,7 +129,6 @@ function RecipeDetailPage() {
 
   return (
     <div className="recipe-detail-container">
-      {/* 헤더 */}
       <header className="dashboard-header">
         <div className="logo">🍳 RecipeNote</div>
         <nav className="nav">
@@ -137,7 +138,6 @@ function RecipeDetailPage() {
         </nav>
       </header>
 
-      {/* 메인 콘텐츠 */}
       <div className="recipe-detail-content">
         <button className="btn-back" onClick={() => navigate('/dashboard')}>
           ← 돌아가기
@@ -159,7 +159,6 @@ function RecipeDetailPage() {
           )}
         </div>
 
-        {/* 레시피 이미지 */}
         {recipe.imageUrl ? (
           <div style={{
             marginBottom: '32px',
@@ -182,7 +181,6 @@ function RecipeDetailPage() {
           <div className="detail-image">{recipe.emoji || '🍽️'}</div>
         )}
 
-        {/* YouTube 영상 */}
         {recipe.youtubeUrl && (
           <div style={{
             marginBottom: '32px',
@@ -193,7 +191,7 @@ function RecipeDetailPage() {
           }}>
             <div style={{
               position: 'relative',
-              paddingBottom: '56.25%', // 16:9 비율
+              paddingBottom: '56.25%',
               height: 0
             }}>
               <iframe
