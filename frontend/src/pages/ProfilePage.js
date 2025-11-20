@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getProfile, updateProfile } from '../api/profile';  // ⭐ 여기만 확인
+import ChangePasswordModal from '../components/ChangePasswordModal';
 import '../styles/Profile.css';
 
 function ProfilePage() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -16,19 +20,33 @@ function ProfilePage() {
   const [dietaryRestrictions, setDietaryRestrictions] = useState([]);
 
   useEffect(() => {
-    // 인증 확인
     const token = localStorage.getItem('token');
     if (!token) {
       navigate('/login');
       return;
     }
-
-    // 사용자 정보 불러오기
     loadUserProfile();
   }, [navigate]);
 
-  const loadUserProfile = () => {
+  const loadUserProfile = async () => {
     try {
+      setLoading(true);
+      const response = await getProfile();
+      
+      // API 응답 구조 확인
+      const profile = response.data || response;
+      
+      setFormData({
+        name: profile.name || '',
+        email: profile.email || '',
+        username: profile.username || ''
+      });
+      setAllergies(profile.allergies || []);
+      setDietaryRestrictions(profile.dietaryRestrictions || []);
+    } catch (error) {
+      console.error('프로필 로드 실패:', error);
+      
+      // Fallback to localStorage
       const userStr = localStorage.getItem('user');
       if (userStr) {
         const user = JSON.parse(userStr);
@@ -40,8 +58,8 @@ function ProfilePage() {
         setAllergies(user.allergies || []);
         setDietaryRestrictions(user.dietaryRestrictions || []);
       }
-    } catch (error) {
-      console.error('프로필 로드 실패:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -54,16 +72,30 @@ function ProfilePage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+
+    if (!formData.name.trim()) {
+      alert('이름을 입력해주세요.');
+      return;
+    }
+
+    setSaving(true);
 
     try {
-      // 로컬 스토리지 업데이트
+      const profileData = {
+        name: formData.name,
+        allergies,
+        dietaryRestrictions
+      };
+
+      const response = await updateProfile(profileData);
+
+      // localStorage 업데이트
       const userStr = localStorage.getItem('user');
       if (userStr) {
         const user = JSON.parse(userStr);
         const updatedUser = {
           ...user,
-          ...formData,
+          name: formData.name,
           allergies,
           dietaryRestrictions
         };
@@ -73,9 +105,9 @@ function ProfilePage() {
       alert('프로필이 저장되었습니다!');
     } catch (error) {
       console.error('프로필 저장 실패:', error);
-      alert('프로필 저장에 실패했습니다.');
+      alert(error.response?.data?.error?.message || '프로필 저장에 실패했습니다.');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -106,9 +138,27 @@ function ProfilePage() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="profile-container">
+        <header className="dashboard-header">
+          <div className="logo">🍳 RecipeNote</div>
+          <nav className="nav">
+            <a href="/dashboard">내 레시피</a>
+            <a href="/profile">프로필</a>
+            <a onClick={handleLogout} style={{ cursor: 'pointer' }}>로그아웃</a>
+          </nav>
+        </header>
+        <div style={{ textAlign: 'center', padding: '100px 20px' }}>
+          <div className="spinner"></div>
+          <p style={{ marginTop: '20px', color: '#718096' }}>프로필을 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="profile-container">
-      {/* 헤더 */}
       <header className="dashboard-header">
         <div className="logo">🍳 RecipeNote</div>
         <nav className="nav">
@@ -118,7 +168,6 @@ function ProfilePage() {
         </nav>
       </header>
 
-      {/* 메인 콘텐츠 */}
       <div className="profile-content">
         <div className="profile-section">
           <div className="page-header">
@@ -147,7 +196,8 @@ function ProfilePage() {
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                disabled={loading}
+                disabled={saving}
+                placeholder="이름을 입력하세요"
               />
             </div>
 
@@ -157,11 +207,18 @@ function ProfilePage() {
                 type="email"
                 name="email"
                 value={formData.email}
-                onChange={handleChange}
                 disabled
                 style={{ background: '#F7F9FC' }}
               />
             </div>
+
+            <button
+              type="button"
+              className="btn-change-password"
+              onClick={() => setShowPasswordModal(true)}
+            >
+              🔒 비밀번호 변경
+            </button>
 
             <h2 className="section-title">🚫 알레르기</h2>
             <div className="checkbox-group">
@@ -171,7 +228,7 @@ function ProfilePage() {
                     type="checkbox"
                     checked={allergies.includes(allergy)}
                     onChange={() => toggleAllergy(allergy)}
-                    disabled={loading}
+                    disabled={saving}
                   />
                   {allergy}
                 </label>
@@ -186,7 +243,7 @@ function ProfilePage() {
                     type="checkbox"
                     checked={dietaryRestrictions.includes(diet)}
                     onChange={() => toggleDiet(diet)}
-                    disabled={loading}
+                    disabled={saving}
                   />
                   {diet}
                 </label>
@@ -196,13 +253,18 @@ function ProfilePage() {
             <button 
               type="submit" 
               className="btn-primary"
-              disabled={loading}
+              disabled={saving}
             >
-              {loading ? '저장 중...' : '저장하기'}
+              {saving ? '저장 중...' : '저장하기'}
             </button>
           </form>
         </div>
       </div>
+
+      <ChangePasswordModal 
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+      />
     </div>
   );
 }

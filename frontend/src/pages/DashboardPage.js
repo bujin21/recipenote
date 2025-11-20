@@ -15,6 +15,9 @@ function DashboardPage() {
   useEffect(() => {
     // 인증 확인
     const token = localStorage.getItem('token');
+
+    console.log('📦 Dashboard token from localStorage:', token);
+    
     if (!token) {
       console.log('No token, redirecting to login...');
       navigate('/login');

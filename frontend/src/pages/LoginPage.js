@@ -1,135 +1,150 @@
 import React, { useState } from 'react';
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
+import { jwtDecode } from 'jwt-decode';
 import { useNavigate } from 'react-router-dom';
-import { login } from '../api/auth';
+import { login, googleLogin } from '../api/auth';
 import '../styles/Auth.css';
+
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
 function LoginPage() {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    username: '',
-    password: ''
-  });
-  const [error, setError] = useState('');
+  const [emailOrId, setEmailOrId] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-    setError('');
-  };
+  console.log('GOOGLE_CLIENT_ID:', GOOGLE_CLIENT_ID);
 
-  const handleSubmit = async (e) => {
+  // 🔐 일반 로그인
+  const handleLogin = async (e) => {
     e.preventDefault();
-    
-    console.log('Form submitted:', formData); // 디버깅
-    
-    setError('');
     setLoading(true);
 
     try {
-      console.log('Calling login API...'); // 디버깅
-      const response = await login(formData);
-      
-      console.log('Login response:', response); // 디버깅
-      
-      if (response && response.success) {
-        console.log('Login successful, navigating to dashboard...'); // 디버깅
-        navigate('/dashboard', { replace: true });  // ← 이렇게 변경
+      console.log('Attempting login with:', emailOrId); // 디버깅
+
+      const res = await login({
+        username: emailOrId, // 👈 아이디로 로그인
+        password,
+      });
+
+      console.log('🟢 Login response:', res);
+
+      if (res.success) {
+
+        // 토큰 저장 확인
+        console.log('💾 Saved token:', localStorage.getItem('token'));
+        console.log('💾 Saved user:', localStorage.getItem('user'));
+
+        alert('로그인 성공!');
+        navigate('/dashboard');
       } else {
-        console.error('Login failed: success is false'); // 디버깅
-        setError('로그인에 실패했습니다.');
+        alert(res.error?.message || '로그인에 실패했습니다.');
       }
-    } catch (err) {
-      console.error('Login error:', err); // 디버깅
-      setError(err.response?.data?.error?.message || '로그인에 실패했습니다');
+    } catch (error) {
+      console.error('Login error:', error);
+      alert('로그인 중 오류가 발생했습니다: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = () => {
-    alert('Google 로그인은 준비 중입니다.');
+  // 🔑 구글 로그인 성공
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      const decoded = jwtDecode(credentialResponse.credential);
+      console.log('Google User Info:', decoded);
+
+      const res = await googleLogin({
+        token: credentialResponse.credential,
+        email: decoded.email,
+        name: decoded.name,
+        picture: decoded.picture,
+      });
+
+      console.log('Google login response:', res);
+
+      if (res.success) {
+        alert('구글 로그인 성공!');
+        navigate('/dashboard');
+      } else {
+        alert(res.error?.message || '구글 로그인에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Google login error:', error);
+      alert('구글 로그인 중 오류가 발생했습니다: ' + error.message);
+    }
+  };
+
+  const handleGoogleError = () => {
+    console.error('Google Login Failed');
+    alert('구글 로그인에 실패했습니다.');
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-box">
-        <h1 className="auth-title">RecipeNote</h1>
-        <p className="auth-subtitle">나만의 레시피를 한 곳에서 관리하세요</p>
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <div className="auth-container">
+        <div className="auth-box">
+          <h1 className="auth-title">🍽️ Recipe Note</h1>
+          <p className="auth-subtitle">나만의 레시피를 모아보세요</p>
 
-        <button className="btn-google" onClick={handleGoogleLogin} type="button">
-          <img 
-            src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
-            alt="Google"
-            style={{ width: '20px', height: '20px' }}
-          />
-          Google로 시작하기
-        </button>
+          {/* 일반 로그인 폼 */}
+          <form onSubmit={handleLogin}>
+            <div className="form-group">
+              <label>아이디</label>
+              <input
+                type="text"
+                value={emailOrId}
+                onChange={(e) => setEmailOrId(e.target.value)}
+                placeholder="아이디를 입력하세요"
+                required
+              />
+            </div>
 
-        <div className="divider">또는</div>
+            <div className="form-group">
+              <label>비밀번호</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="비밀번호를 입력하세요"
+                required
+              />
+            </div>
 
-        {error && (
-          <div style={{
-            padding: '12px',
-            background: '#FEE',
-            color: '#C53030',
-            borderRadius: '8px',
-            marginBottom: '20px',
-            fontSize: '14px',
-            fontWeight: '500'
-          }}>
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>아이디</label>
-            <input
-              type="text"
-              name="username"
-              value={formData.username}
-              onChange={handleChange}
-              placeholder="아이디를 입력하세요"
-              required
+            <button
+              type="submit"
+              className="btn-primary"
               disabled={loading}
+            >
+              {loading ? '로그인 중...' : '로그인'}
+            </button>
+          </form>
+
+          {/* 구분선 */}
+          <div className="divider">
+            <span>또는</span>
+          </div>
+
+          {/* 구글 로그인 버튼 */}
+          <div className="google-login-wrapper">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              theme="outline"
+              size="large"
+              text="continue_with"
+              shape="rectangular"
             />
           </div>
 
-          <div className="form-group">
-            <label>비밀번호</label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="비밀번호를 입력하세요"
-              required
-              disabled={loading}
-            />
+          {/* 회원가입 링크 */}
+          <div className="auth-link">
+            계정이 없으신가요? <a href="/register">회원가입</a>
           </div>
-
-          <button 
-            type="submit" 
-            className="btn-primary"
-            disabled={loading}
-          >
-            {loading ? '로그인 중...' : '로그인'}
-          </button>
-
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => navigate('/register')}
-            disabled={loading}
-          >
-            회원가입
-          </button>
-        </form>
+        </div>
       </div>
-    </div>
+    </GoogleOAuthProvider>
   );
 }
 

@@ -10,18 +10,18 @@ function RecipeEditPage() {
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     title: '',
+    category: '',           // ✅ 추가
     cookingTime: '',
     difficulty: '보통',
-    servings: '2',          // 문자열로 관리 → input value가 항상 정의됨
+    servings: '2',
     imageUrl: '',
     youtubeUrl: '',
     description: '',
     ingredients: [''],
     steps: [''],
-    tags: []                // 필요하면 나중에 텍스트로 바꿔도 됨
+    tags: ''                // ✅ 배열 → 문자열로 관리
   });
 
-  // 로그인 체크 + 레시피 로드
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -36,18 +36,12 @@ function RecipeEditPage() {
       setLoading(true);
       const response = await getRecipe(id);
 
-      console.log('========== 수정 페이지 디버깅 ==========');
-      console.log('1. API 응답 전체:', response);
-      console.log('2. response.data:', response.data);
-      console.log('3. imageUrl:', response.data?.imageUrl);
-      console.log('4. youtubeUrl:', response.data?.youtubeUrl);
-      console.log('=======================================');
-
       if (response.success) {
         const recipe = response.data;
 
         const newFormData = {
           title: recipe.title || '',
+          category: recipe.category || '',                    // ✅ 추가
           cookingTime:
             recipe.cookingTime !== undefined && recipe.cookingTime !== null
               ? String(recipe.cookingTime)
@@ -68,12 +62,10 @@ function RecipeEditPage() {
             recipe.steps && recipe.steps.length
               ? recipe.steps
               : [''],
-          tags: recipe.tags || []
+          tags: Array.isArray(recipe.tags)                    // ✅ 배열 → 문자열
+            ? recipe.tags.join(', ')
+            : ''
         };
-
-        console.log('5. 설정할 formData:', newFormData);
-        console.log('6. formData.imageUrl:', newFormData.imageUrl);
-        console.log('7. formData.youtubeUrl:', newFormData.youtubeUrl);
 
         setFormData(newFormData);
       }
@@ -91,6 +83,11 @@ function RecipeEditPage() {
 
     if (!formData.title.trim()) {
       alert('제목을 입력해주세요.');
+      return;
+    }
+
+    if (!formData.category) {
+      alert('카테고리를 선택해주세요.');
       return;
     }
 
@@ -114,12 +111,11 @@ function RecipeEditPage() {
           ? Number(formData.servings)
           : 1,
         ingredients: formData.ingredients.filter(i => i.trim()),
-        steps: formData.steps.filter(s => s.trim())
+        steps: formData.steps.filter(s => s.trim()),
+        tags: formData.tags                                   // ✅ 문자열 → 배열
+          ? formData.tags.split(',').map(t => t.trim()).filter(t => t)
+          : []
       };
-
-      console.log('========== 저장 데이터 ==========');
-      console.log('cleanedData:', cleanedData);
-      console.log('================================');
 
       const response = await updateRecipe(id, cleanedData);
 
@@ -134,7 +130,6 @@ function RecipeEditPage() {
   };
 
   const handleInputChange = (field, value) => {
-    console.log(`필드 변경: ${field} = ${value}`);
     setFormData(prev => ({
       ...prev,
       [field]: value ?? ''
@@ -300,19 +295,21 @@ function RecipeEditPage() {
             </div>
           </div>
 
-          <div
-            style={{
-              background: '#FFF9E6',
-              padding: '15px',
-              borderRadius: '8px',
-              marginBottom: '20px',
-              border: '2px solid #FFD93D',
-              fontFamily: 'monospace'
-            }}
-          >
-            <strong>🔍 디버깅 정보:</strong>
-            <div>imageUrl: "{formData.imageUrl || '(비어있음)'}"</div>
-            <div>youtubeUrl: "{formData.youtubeUrl || '(비어있음)'}"</div>
+          {/* ✅ 카테고리 추가 */}
+          <div className="form-group">
+            <label className="form-label">카테고리 *</label>
+            <select
+              value={formData.category}
+              onChange={e => handleInputChange('category', e.target.value)}
+              className="form-input"
+              required
+            >
+              <option value="">선택하세요</option>
+              <option value="메인 요리">메인 요리</option>
+              <option value="반찬">반찬</option>
+              <option value="국/찌개">국/찌개</option>
+              <option value="디저트">디저트</option>
+            </select>
           </div>
 
           <div className="form-group">
@@ -452,6 +449,19 @@ function RecipeEditPage() {
             >
               + 단계 추가
             </button>
+          </div>
+
+          {/* ✅ 태그 추가 */}
+          <div className="form-group">
+            <label className="form-label">태그</label>
+            <input
+              type="text"
+              value={formData.tags}
+              onChange={e => handleInputChange('tags', e.target.value)}
+              className="form-input"
+              placeholder="태그를 입력하세요 (쉼표로 구분)"
+            />
+            <p className="form-hint">예: 한식, 간단요리, 30분요리</p>
           </div>
 
           <div className="form-actions">

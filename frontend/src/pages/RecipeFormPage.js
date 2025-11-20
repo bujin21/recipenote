@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { getRecipe, createRecipe, updateRecipe, parseRecipeUrl } from '../api/recipes';
+import { useNavigate } from 'react-router-dom';
+import { createRecipe, parseRecipeUrl } from '../api/recipes';
 import '../styles/RecipeForm.css';
 
 function RecipeFormPage() {
   const navigate = useNavigate();
-  const { id } = useParams();
-  const isEditMode = !!id;
 
   const [showUrlModal, setShowUrlModal] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
@@ -18,7 +16,7 @@ function RecipeFormPage() {
     category: '',
     difficulty: '쉬움',
     cookingTime: '',
-    servings: '',
+    servings: '2',
     tags: '',
     imageUrl: '',
     youtubeUrl: ''
@@ -33,68 +31,13 @@ function RecipeFormPage() {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
 
-  // 로그인 확인 + 수정 모드면 레시피 로드
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
       navigate('/login');
       return;
     }
-
-    if (isEditMode) {
-      loadRecipe();
-    }
-  }, [navigate, id, isEditMode]);
-
-  const loadRecipe = async () => {
-    try {
-      const response = await getRecipe(id);
-
-      if (response.success) {
-        const recipe = response.data;
-
-        // formData 채우기 (🔥 imageUrl, youtubeUrl 포함)
-        setFormData(prev => ({
-          ...prev,
-          title: recipe.title || '',
-          description: recipe.description || '',
-          category: recipe.category || '',
-          difficulty: recipe.difficulty || '쉬움',
-          cookingTime:
-            recipe.cookingTime !== undefined && recipe.cookingTime !== null
-              ? String(recipe.cookingTime)
-              : '',
-          servings:
-            recipe.servings !== undefined && recipe.servings !== null
-              ? String(recipe.servings)
-              : '2',
-          tags: Array.isArray(recipe.tags) ? recipe.tags.join(', ') : '',
-          imageUrl: recipe.imageUrl || '',
-          youtubeUrl: recipe.youtubeUrl || ''
-        }));
-
-        // 재료 파싱 (문자열 → 객체)
-        const parsedIngredients = (recipe.ingredients || []).map(ing => {
-          const parts = ing.split(' ');
-          const amount = parts[parts.length - 1];
-          const name = parts.slice(0, -1).join(' ');
-          return { name, amount };
-        });
-        setIngredients(parsedIngredients);
-
-        setSteps(recipe.steps && recipe.steps.length ? recipe.steps : ['']);
-
-        // 수정 화면에서도 미리보기 보이게
-        if (recipe.imageUrl) {
-          setImagePreview(recipe.imageUrl);
-        }
-      }
-    } catch (err) {
-      console.error('레시피 로드 실패:', err);
-      alert('레시피를 불러오는데 실패했습니다.');
-      navigate('/dashboard');
-    }
-  };
+  }, [navigate]);
 
   const handleChange = e => {
     const { name, value } = e.target;
@@ -131,7 +74,6 @@ function RecipeFormPage() {
     }
   };
 
-  // URL 파싱 핸들러
   const handleUrlParsing = async () => {
     if (!urlInput.trim()) {
       alert('URL을 입력해주세요.');
@@ -147,7 +89,6 @@ function RecipeFormPage() {
       if (response.success) {
         const data = response.data;
 
-        // 🔥 함수형 setFormData 사용 (stale formData 방지)
         setFormData(prev => ({
           ...prev,
           title: data.title || '',
@@ -161,12 +102,10 @@ function RecipeFormPage() {
           imageUrl: data.thumbnail || prev.imageUrl
         }));
 
-        // 썸네일 미리보기
         if (data.thumbnail) {
           setImagePreview(data.thumbnail);
         }
 
-        // 재료 설정
         if (data.ingredients && data.ingredients.length > 0) {
           const parsedIngredients = data.ingredients.map(ing => {
             const parts = ing.split(' ');
@@ -177,7 +116,6 @@ function RecipeFormPage() {
           setIngredients(parsedIngredients);
         }
 
-        // 조리 순서 설정
         if (data.steps && data.steps.length > 0) {
           setSteps(data.steps);
         }
@@ -201,7 +139,6 @@ function RecipeFormPage() {
     }
   };
 
-  // 이미지 파일 선택 핸들러
   const handleImageChange = e => {
     const file = e.target.files[0];
     if (file) {
@@ -225,7 +162,6 @@ function RecipeFormPage() {
     }
   };
 
-  // 이미지 S3 업로드 (임시 base64)
   const uploadImageToS3 = async file => {
     try {
       return new Promise(resolve => {
@@ -280,15 +216,10 @@ function RecipeFormPage() {
         youtubeUrl: formData.youtubeUrl || null
       };
 
-      let response;
-      if (isEditMode) {
-        response = await updateRecipe(id, recipeData);
-      } else {
-        response = await createRecipe(recipeData);
-      }
+      const response = await createRecipe(recipeData);
 
       if (response.success) {
-        alert(isEditMode ? '레시피가 수정되었습니다!' : '레시피가 저장되었습니다!');
+        alert('레시피가 저장되었습니다!');
         navigate('/dashboard');
       }
     } catch (error) {
@@ -309,7 +240,6 @@ function RecipeFormPage() {
 
   return (
     <div className="recipe-form-container">
-      {/* 헤더 */}
       <header className="dashboard-header">
         <div className="logo">🍳 RecipeNote</div>
         <nav className="nav">
@@ -321,30 +251,24 @@ function RecipeFormPage() {
         </nav>
       </header>
 
-      {/* 메인 콘텐츠 */}
       <div className="recipe-form-content">
         <div className="recipe-form">
           <div className="page-header">
-            <h1 className="page-title">
-              {isEditMode ? '레시피 수정' : '새 레시피 추가'}
-            </h1>
+            <h1 className="page-title">새 레시피 추가</h1>
             <p className="page-subtitle">URL로 자동 채우거나 직접 입력하세요</p>
           </div>
 
-          {/* URL 자동 채우기 섹션 (등록할 때만) */}
-          {!isEditMode && (
-            <div className="url-section">
-              <h3>🔗 URL로 자동 채우기</h3>
-              <p>YouTube, 블로그 레시피 URL을 입력하면 AI가 자동으로 채워드려요!</p>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => setShowUrlModal(true)}
-              >
-                URL 입력하기
-              </button>
-            </div>
-          )}
+          <div className="url-section">
+            <h3>🔗 URL로 자동 채우기</h3>
+            <p>YouTube, 블로그 레시피 URL을 입력하면 AI가 자동으로 채워드려요!</p>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => setShowUrlModal(true)}
+            >
+              URL 입력하기
+            </button>
+          </div>
 
           {error && (
             <div
@@ -374,7 +298,6 @@ function RecipeFormPage() {
               />
             </div>
 
-            {/* 이미지 업로드 섹션 */}
             <div className="form-group">
               <label>🖼️ 대표 이미지</label>
               {imagePreview && (
@@ -411,7 +334,6 @@ function RecipeFormPage() {
               </p>
             </div>
 
-            {/* YouTube URL 입력 */}
             <div className="form-group">
               <label>📺 YouTube URL (선택)</label>
               <input
@@ -609,11 +531,7 @@ function RecipeFormPage() {
                 className="btn-primary"
                 disabled={loading}
               >
-                {loading
-                  ? '저장 중...'
-                  : isEditMode
-                  ? '수정하기'
-                  : '저장하기'}
+                {loading ? '저장 중...' : '저장하기'}
               </button>
               <button
                 type="button"
@@ -628,7 +546,6 @@ function RecipeFormPage() {
         </div>
       </div>
 
-      {/* URL 입력 모달 */}
       {showUrlModal && (
         <div className="modal" onClick={() => setShowUrlModal(false)}>
           <div
@@ -690,7 +607,6 @@ function RecipeFormPage() {
         </div>
       )}
 
-      {/* 파싱 중 모달 */}
       {isParsing && (
         <div className="modal">
           <div className="modal-content">
