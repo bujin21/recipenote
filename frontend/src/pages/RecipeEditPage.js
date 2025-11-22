@@ -10,7 +10,7 @@ function RecipeEditPage() {
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     title: '',
-    category: '',           // ✅ 추가
+    category: '',
     cookingTime: '',
     difficulty: '보통',
     servings: '2',
@@ -19,7 +19,8 @@ function RecipeEditPage() {
     description: '',
     ingredients: [''],
     steps: [''],
-    tags: ''                // ✅ 배열 → 문자열로 관리
+    tips: [],
+    tags: ''
   });
 
   useEffect(() => {
@@ -41,7 +42,7 @@ function RecipeEditPage() {
 
         const newFormData = {
           title: recipe.title || '',
-          category: recipe.category || '',                    // ✅ 추가
+          category: recipe.category || '',                  
           cookingTime:
             recipe.cookingTime !== undefined && recipe.cookingTime !== null
               ? String(recipe.cookingTime)
@@ -62,9 +63,11 @@ function RecipeEditPage() {
             recipe.steps && recipe.steps.length
               ? recipe.steps
               : [''],
+          tips: recipe.tips || [],
           tags: Array.isArray(recipe.tags)                    // ✅ 배열 → 문자열
             ? recipe.tags.join(', ')
             : ''
+            
         };
 
         setFormData(newFormData);
@@ -112,6 +115,7 @@ function RecipeEditPage() {
           : 1,
         ingredients: formData.ingredients.filter(i => i.trim()),
         steps: formData.steps.filter(s => s.trim()),
+        tips: formData.tips ? formData.tips.filter(t => t.trim()) : [],
         tags: formData.tags                                   // ✅ 문자열 → 배열
           ? formData.tags.split(',').map(t => t.trim()).filter(t => t)
           : []
@@ -451,6 +455,44 @@ function RecipeEditPage() {
             </button>
           </div>
 
+          <div className="form-group">
+            <label className="form-label">💡 조리 팁</label>
+            {formData.tips.map((tip, index) => (
+              <div key={index} className="array-item">
+                <span className="item-number">{index + 1}.</span>
+                <input
+                  type="text"
+                  value={tip}
+                  onChange={(e) => {
+                    const newTips = [...formData.tips];
+                    newTips[index] = e.target.value;
+                    setFormData(prev => ({ ...prev, tips: newTips }));
+                  }}
+                  className="form-input"
+                  placeholder="조리 팁을 입력하세요"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData(prev => ({
+                      ...prev,
+                      tips: prev.tips.filter((_, i) => i !== index)
+                    }));
+                  }}
+                  className="btn-remove"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setFormData(prev => ({ ...prev, tips: [...prev.tips, ''] }))}
+              className="btn-add"
+            >
+              + 팁 추가
+            </button>
+          </div>
           {/* ✅ 태그 추가 */}
           <div className="form-group">
             <label className="form-label">태그</label>

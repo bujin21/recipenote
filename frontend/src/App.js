@@ -7,6 +7,7 @@ import RecipeDetailPage from './pages/RecipeDetailPage';
 import RecipeFormPage from './pages/RecipeFormPage';
 import RecipeEditPage from './pages/RecipeEditPage';
 import ProfilePage from './pages/ProfilePage';
+import AIRecipeGeneratorPage from './pages/AIRecipeGeneratorPage';
 import './App.css';
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
         <Route path="/recipes/new" element={<RecipeFormPage />} />
         <Route path="/recipes/:id" element={<RecipeDetailPage />} />
         <Route path="/recipes/:id/edit" element={<RecipeEditPage />} />
+        <Route path="/ai-recipe" element={<AIRecipeGeneratorPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<div style={{padding: '40px', textAlign: 'center'}}>404 - 페이지를 찾을 수 없습니다</div>} />
       </Routes>

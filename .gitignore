@@ -25,3 +25,7 @@ yarn-error.log*
 lambda-layer/nodejs/node_modules/
 lambda-layer/nodejs/package-lock.json
 lambda-layer/*.zip
+
+# cache
+.cache/
+node_modules/.cache/

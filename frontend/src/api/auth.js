@@ -17,19 +17,14 @@ export const login = async (credentials) => {
     password: credentials.password,
   };
 
-  console.log('🔵 Login payload:', payload); // 디버깅
 
   try {
     const response = await api.post('/auth/login', payload);
-    
-    console.log('🟢 Login response:', response.data); // 디버깅
 
     if (response.data.success) {
       localStorage.setItem('token', response.data.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.data.user));
 
-      console.log('💾 Saved token:', localStorage.getItem('token'));
-      console.log('💾 Saved user :', localStorage.getItem('user'));
     }
 
     return response.data;
@@ -44,8 +39,6 @@ export const googleLogin = async (googleData) => {
 
   try {
     const response = await api.post('/auth/google', googleData);
-    
-    console.log('🟢 Google login response:', response.data);
 
     if (response.data.success) {
       localStorage.setItem('token', response.data.data.token);

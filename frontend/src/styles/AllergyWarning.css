@@ -1,0 +1,224 @@
+/*allergy*/
+.allergy-info-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%);
+  border-radius: 12px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 12px rgba(72, 187, 120, 0.2);
+}
+
+.banner-icon {
+  font-size: 24px;
+}
+
+.banner-text {
+  font-size: 15px;
+  color: #22543d;
+}
+
+.banner-text strong {
+  font-weight: 600;
+}
+
+/* 알레르기 경고가 있는 재료 표시 */
+.ingredient-warning {
+  border-color: #fc8181 !important;
+  background-color: #fff5f5 !important;
+}
+
+.ingredient-warning-badge {
+  position: absolute;
+  right: 50px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #c53030;
+  color: white;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+
+.allergy-warning-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.allergy-warning-modal {
+  background: white;
+  border-radius: 20px;
+  padding: 32px;
+  max-width: 480px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.warning-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  animation: shake 0.5s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.warning-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #c53030;
+  margin-bottom: 12px;
+}
+
+.warning-message {
+  font-size: 16px;
+  color: #4a5568;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.allergen-list {
+  background: #fff5f5;
+  border: 2px solid #feb2b2;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.allergen-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+.allergen-item:last-child {
+  margin-bottom: 0;
+}
+
+.allergen-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.allergen-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.allergen-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #c53030;
+}
+
+.allergen-ingredient {
+  font-size: 14px;
+  color: #718096;
+}
+
+.warning-note {
+  font-size: 14px;
+  color: #718096;
+  margin-bottom: 24px;
+  padding: 12px;
+  background: #f7fafc;
+  border-radius: 8px;
+  line-height: 1.5;
+}
+
+.warning-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.warning-buttons button {
+  padding: 14px 28px;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-cancel {
+  background: #e2e8f0;
+  color: #4a5568;
+  border: none;
+}
+
+.btn-cancel:hover {
+  background: #cbd5e0;
+}
+
+.btn-continue {
+  background: linear-gradient(135deg, #f56565 0%, #c53030 100%);
+  color: white;
+  border: none;
+}
+
+.btn-continue:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(197, 48, 48, 0.3);
+}
+
+/* 반응형 */
+@media (max-width: 480px) {
+  .allergy-warning-modal {
+    padding: 24px;
+  }
+
+  .warning-icon {
+    font-size: 48px;
+  }
+
+  .warning-title {
+    font-size: 24px;
+  }
+
+  .warning-buttons {
+    flex-direction: column;
+  }
+
+  .warning-buttons button {
+    width: 100%;
+  }
+}

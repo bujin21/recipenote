@@ -29,3 +29,4 @@ export const parseRecipeUrl = async (url) => {
   const response = await api.post('/recipes/parse-url', { url });
   return response.data;
 };
+

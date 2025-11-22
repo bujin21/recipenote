@@ -1,44 +1,102 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { createRecipe, parseRecipeUrl } from '../api/recipes';
+import { getProfile } from '../api/profile';
+import { checkAllergens } from '../utils/allergyChecker';
+import AllergyWarning from '../components/AllergyWarning';
 import '../styles/RecipeForm.css';
+import '../styles/AllergyWarning.css';
 
 function RecipeFormPage() {
+  const location = useLocation();
   const navigate = useNavigate();
 
+  // AI 생성 레시피 받기
+  const aiRecipe = location.state?.aiGeneratedRecipe;
+
+  // URL 모달/파싱
   const [showUrlModal, setShowUrlModal] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [urlInput, setUrlInput] = useState('');
 
+  // 알레르기/프로필
+  const [profile, setProfile] = useState(null);
+  const [showAllergyWarning, setShowAllergyWarning] = useState(false);
+  const [detectedAllergens, setDetectedAllergens] = useState([]);
+  const [pendingRecipeData, setPendingRecipeData] = useState(null);
+
+  // 폼
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    category: '',
-    difficulty: '쉬움',
-    cookingTime: '',
-    servings: '2',
-    tags: '',
-    imageUrl: '',
-    youtubeUrl: ''
+    title: aiRecipe?.title || '',
+    description: aiRecipe?.description || '',
+    category: aiRecipe?.category || '메인 요리',
+    difficulty: aiRecipe?.difficulty || '쉬움',
+    cookingTime: aiRecipe?.cookingTime ? String(aiRecipe.cookingTime) : '',
+    servings: aiRecipe?.servings ? String(aiRecipe.servings) : '2',
+    tags: Array.isArray(aiRecipe?.tags) ? aiRecipe.tags.join(', ') : '',
+    tips: aiRecipe?.tips || [],
+    youtubeUrl: '',
+    imageUrl: ''
   });
 
-  const [ingredients, setIngredients] = useState([]);
+  // AI 레시피에서 재료 변환
+  const parseAiIngredients = (ingredients) => {
+    if (!ingredients || !Array.isArray(ingredients)) return [];
+    return ingredients.map(ing => {
+      if (typeof ing === 'string') {
+        const parts = ing.split(' ');
+        if (parts.length >= 2) {
+          const amount = parts[parts.length - 1];
+          const name = parts.slice(0, -1).join(' ');
+          return { name, amount };
+        }
+        return { name: ing, amount: '' };
+      }
+      return { name: ing.name || '', amount: ing.amount || '' };
+    });
+  };
+
+  const [ingredients, setIngredients] = useState(
+    aiRecipe?.ingredients ? parseAiIngredients(aiRecipe.ingredients) : []
+  );
   const [newIngredient, setNewIngredient] = useState({ name: '', amount: '' });
 
-  const [steps, setSteps] = useState(['']);
+  const [steps, setSteps] = useState(
+    aiRecipe?.steps && aiRecipe.steps.length > 0 ? aiRecipe.steps : ['']
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // 이미지 업로드
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
 
+  // 로그인/프로필 로드
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
       navigate('/login');
       return;
     }
+    loadProfile();
   }, [navigate]);
 
+  const loadProfile = async () => {
+    try {
+      const res = await getProfile();
+      setProfile(res.data || res);
+    } catch (err) {
+      console.error('프로필 로드 실패:', err);
+    }
+  };
+
+  // 알레르기 체크 헬퍼
+  const checkForAllergens = (ingredientStrings) => {
+    if (!profile?.allergies || profile.allergies.length === 0) return [];
+    return checkAllergens(ingredientStrings, profile.allergies);
+  };
+
+  // 인풋 공통
   const handleChange = e => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -47,6 +105,7 @@ function RecipeFormPage() {
     }));
   };
 
+  // 재료 추가/삭제
   const handleAddIngredient = () => {
     if (newIngredient.name && newIngredient.amount) {
       setIngredients([...ingredients, newIngredient]);
@@ -58,6 +117,7 @@ function RecipeFormPage() {
     setIngredients(ingredients.filter((_, i) => i !== index));
   };
 
+  // 조리 순서
   const handleStepChange = (index, value) => {
     const newSteps = [...steps];
     newSteps[index] = value;
@@ -74,6 +134,37 @@ function RecipeFormPage() {
     }
   };
 
+  // 이미지 선택
+  const handleImageChange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('이미지 크기는 5MB 이하여야 합니다.');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일만 업로드 가능합니다.');
+      return;
+    }
+
+    setImageFile(file);
+
+    const reader = new FileReader();
+    reader.onloadend = () => setImagePreview(reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  // 실제 업로드 대신 dataURL 리턴
+  const uploadImageToS3 = async file => {
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // URL 파싱
   const handleUrlParsing = async () => {
     if (!urlInput.trim()) {
       alert('URL을 입력해주세요.');
@@ -84,54 +175,24 @@ function RecipeFormPage() {
     setIsParsing(true);
 
     try {
-      const response = await parseRecipeUrl(urlInput);
+      const response = await parseRecipeUrl(urlInput.trim());
 
-      if (response.success) {
+      if (response.success && response.data) {
         const data = response.data;
 
-        setFormData(prev => ({
-          ...prev,
-          title: data.title || '',
-          description: data.description || '',
-          category: data.category || '',
-          difficulty: data.difficulty || '쉬움',
-          cookingTime: data.cookingTime != null ? String(data.cookingTime) : '',
-          servings: data.servings != null ? String(data.servings) : '2',
-          tags: Array.isArray(data.tags) ? data.tags.join(', ') : '',
-          youtubeUrl: data.youtubeUrl || prev.youtubeUrl,
-          imageUrl: data.thumbnail || prev.imageUrl
-        }));
-
-        if (data.thumbnail) {
-          setImagePreview(data.thumbnail);
-        }
-
-        if (data.ingredients && data.ingredients.length > 0) {
-          const parsedIngredients = data.ingredients.map(ing => {
-            const parts = ing.split(' ');
-            const amount = parts[parts.length - 1];
-            const name = parts.slice(0, -1).join(' ');
-            return { name, amount };
-          });
-          setIngredients(parsedIngredients);
-        }
-
-        if (data.steps && data.steps.length > 0) {
-          setSteps(data.steps);
-        }
-
-        if (data.sourceType === 'youtube') {
-          alert('YouTube 영상이 연결되었습니다! 영상을 보며 내용을 수정해주세요.');
+        const allergens = checkForAllergens(data.ingredients || []);
+        if (allergens.length > 0) {
+          setDetectedAllergens(allergens);
+          setPendingRecipeData(data);
+          setShowAllergyWarning(true);
         } else {
-          alert('레시피가 자동으로 채워졌습니다! 확인 후 수정해주세요.');
+          applyParsedRecipe(data);
         }
-
-        setUrlInput('');
       }
-    } catch (error) {
-      console.error('URL 파싱 실패:', error);
+    } catch (err) {
+      console.error('URL 파싱 실패:', err);
       alert(
-        error.response?.data?.error?.message ||
+        err.response?.data?.error?.message ||
           'URL 파싱에 실패했습니다. 다시 시도해주세요.'
       );
     } finally {
@@ -139,44 +200,68 @@ function RecipeFormPage() {
     }
   };
 
-  const handleImageChange = e => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert('이미지 크기는 5MB 이하여야 합니다.');
-        return;
-      }
+  // 파싱된 레시피를 폼에 적용
+  const applyParsedRecipe = (data) => {
+    setFormData(prev => ({
+      ...prev,
+      title: data.title || '',
+      description: data.description || '',
+      category: data.category || '메인 요리',
+      difficulty: data.difficulty || '쉬움',
+      cookingTime: data.cookingTime != null ? String(data.cookingTime) : '',
+      servings: data.servings != null ? String(data.servings) : '2',
+      tags: Array.isArray(data.tags) ? data.tags.join(', ') : '',
+      tips: data.tips || [],
+      youtubeUrl: data.youtubeUrl || prev.youtubeUrl,
+      imageUrl: data.thumbnail || prev.imageUrl
+    }));
 
-      if (!file.type.startsWith('image/')) {
-        alert('이미지 파일만 업로드 가능합니다.');
-        return;
-      }
-
-      setImageFile(file);
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+    if (data.thumbnail) {
+      setImagePreview(data.thumbnail);
     }
-  };
 
-  const uploadImageToS3 = async file => {
-    try {
-      return new Promise(resolve => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          resolve(reader.result);
-        };
-        reader.readAsDataURL(file);
+    if (data.ingredients && data.ingredients.length > 0) {
+      const parsedIngredients = data.ingredients.map(ing => {
+        const parts = ing.split(' ');
+        const amount = parts[parts.length - 1];
+        const name = parts.slice(0, -1).join(' ');
+        return { name, amount };
       });
-    } catch (error) {
-      console.error('이미지 업로드 실패:', error);
-      throw error;
+      setIngredients(parsedIngredients);
     }
+
+    if (data.steps && data.steps.length > 0) {
+      setSteps(data.steps);
+    }
+
+    if (data.sourceType === 'youtube') {
+      alert('YouTube 영상이 연결되었습니다!');
+    } else {
+      alert('레시피가 자동으로 채워졌습니다! 확인 후 수정해주세요.');
+    }
+
+    setUrlInput('');
   };
 
+  // 알레르기 모달: 계속 진행
+  const handleAllergyWarningContinue = () => {
+    if (pendingRecipeData) {
+      applyParsedRecipe(pendingRecipeData);
+    }
+    setShowAllergyWarning(false);
+    setDetectedAllergens([]);
+    setPendingRecipeData(null);
+  };
+
+  // 알레르기 모달: 취소
+  const handleAllergyWarningClose = () => {
+    setShowAllergyWarning(false);
+    setDetectedAllergens([]);
+    setPendingRecipeData(null);
+    setUrlInput('');
+  };
+
+  // 저장
   const handleSubmit = async e => {
     e.preventDefault();
 
@@ -184,10 +269,22 @@ function RecipeFormPage() {
       alert('재료를 최소 1개 이상 추가해주세요.');
       return;
     }
-
     if (steps.filter(s => s.trim()).length === 0) {
       alert('조리 순서를 최소 1개 이상 추가해주세요.');
       return;
+    }
+
+    // 저장 전 알레르기 최종 체크
+    const ingredientStrings = ingredients.map(
+      ing => `${ing.name} ${ing.amount}`.trim()
+    );
+    const allergens = checkForAllergens(ingredientStrings);
+    if (allergens.length > 0) {
+      const allergenNames = [...new Set(allergens.map(a => a.allergen))].join(', ');
+      const ok = window.confirm(
+        `⚠️ 알레르기 경고!\n\n이 레시피에는 "${allergenNames}" 관련 재료가 포함되어 있습니다.\n\n그래도 저장하시겠습니까?`
+      );
+      if (!ok) return;
     }
 
     setLoading(true);
@@ -200,18 +297,16 @@ function RecipeFormPage() {
       }
 
       const recipeData = {
-        ...formData,
-        cookingTime: formData.cookingTime
-          ? parseInt(formData.cookingTime, 10)
-          : null,
-        servings: formData.servings
-          ? parseInt(formData.servings, 10)
-          : 1,
-        ingredients: ingredients.map(ing => `${ing.name} ${ing.amount}`),
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        difficulty: formData.difficulty,
+        cookingTime: formData.cookingTime ? parseInt(formData.cookingTime, 10) : null,
+        servings: formData.servings ? parseInt(formData.servings, 10) : 1,
+        ingredients: ingredientStrings,
         steps: steps.filter(s => s.trim()),
-        tags: formData.tags
-          ? formData.tags.split(',').map(t => t.trim())
-          : [],
+        tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(t => t) : [],
+        tips: formData.tips ? formData.tips.filter(t => t.trim()) : [],
         imageUrl: imageUrl || null,
         youtubeUrl: formData.youtubeUrl || null
       };
@@ -222,9 +317,12 @@ function RecipeFormPage() {
         alert('레시피가 저장되었습니다!');
         navigate('/dashboard');
       }
-    } catch (error) {
-      console.error('레시피 저장 실패:', error);
-      setError(error.response?.data?.error?.message || '레시피 저장에 실패했습니다.');
+    } catch (err) {
+      console.error('레시피 저장 실패:', err);
+      setError(
+        err.response?.data?.error?.message ||
+          '레시피 저장에 실패했습니다.'
+      );
     } finally {
       setLoading(false);
     }
@@ -244,6 +342,7 @@ function RecipeFormPage() {
         <div className="logo">🍳 RecipeNote</div>
         <nav className="nav">
           <a href="/dashboard">내 레시피</a>
+          <a href="/ai-recipe">AI 레시피</a>
           <a href="/profile">프로필</a>
           <a onClick={handleLogout} style={{ cursor: 'pointer' }}>
             로그아웃
@@ -258,6 +357,18 @@ function RecipeFormPage() {
             <p className="page-subtitle">URL로 자동 채우거나 직접 입력하세요</p>
           </div>
 
+          {/* 알레르기 배너 */}
+          {profile?.allergies && profile.allergies.length > 0 && (
+            <div className="allergy-info-banner">
+              <span className="banner-icon">🛡️</span>
+              <span className="banner-text">
+                <strong>알레르기 보호 활성화:</strong>{' '}
+                {profile.allergies.join(', ')}
+              </span>
+            </div>
+          )}
+
+          {/* URL 섹션 */}
           <div className="url-section">
             <h3>🔗 URL로 자동 채우기</h3>
             <p>YouTube, 블로그 레시피 URL을 입력하면 AI가 자동으로 채워드려요!</p>
@@ -284,20 +395,9 @@ function RecipeFormPage() {
             </div>
           )}
 
+          {/* 메인 폼 */}
           <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label>제목 *</label>
-              <input
-                type="text"
-                name="title"
-                value={formData.title}
-                onChange={handleChange}
-                placeholder="레시피 제목을 입력하세요"
-                required
-                disabled={loading}
-              />
-            </div>
-
+            {/* 대표 이미지 */}
             <div className="form-group">
               <label>🖼️ 대표 이미지</label>
               {imagePreview && (
@@ -323,15 +423,23 @@ function RecipeFormPage() {
                 disabled={loading}
                 style={{ marginBottom: '8px' }}
               />
-              <p
-                style={{
-                  fontSize: '14px',
-                  color: '#718096',
-                  margin: 0
-                }}
-              >
+              <p style={{ fontSize: '14px', color: '#718096', margin: 0 }}>
                 JPG, PNG, GIF (최대 5MB)
               </p>
+            </div>
+
+            {/* 기본 정보 */}
+            <div className="form-group">
+              <label>제목 *</label>
+              <input
+                type="text"
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                placeholder="레시피 제목을 입력하세요"
+                required
+                disabled={loading}
+              />
             </div>
 
             <div className="form-group">
@@ -358,6 +466,7 @@ function RecipeFormPage() {
               />
             </div>
 
+            {/* 재료 */}
             <div className="form-group">
               <label>재료 *</label>
               {ingredients.map((ingredient, index) => (
@@ -411,6 +520,7 @@ function RecipeFormPage() {
               </div>
             </div>
 
+            {/* 조리 순서 */}
             <div className="form-group">
               <label>조리 순서 *</label>
               {steps.map((step, index) => (
@@ -455,6 +565,49 @@ function RecipeFormPage() {
               </button>
             </div>
 
+            {/* 조리 팁 */}
+            <div className="form-group">
+              <label>💡 조리 팁 (선택)</label>
+              {formData.tips && formData.tips.map((tip, index) => (
+                <div key={index} style={{ marginBottom: '8px', display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    value={tip}
+                    onChange={(e) => {
+                      const newTips = [...formData.tips];
+                      newTips[index] = e.target.value;
+                      setFormData(prev => ({ ...prev, tips: newTips }));
+                    }}
+                    placeholder="조리 팁을 입력하세요"
+                    disabled={loading}
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    className="btn-delete"
+                    onClick={() => {
+                      setFormData(prev => ({
+                        ...prev,
+                        tips: prev.tips.filter((_, i) => i !== index)
+                      }));
+                    }}
+                    disabled={loading}
+                  >
+                    삭제
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => setFormData(prev => ({ ...prev, tips: [...(prev.tips || []), ''] }))}
+                disabled={loading}
+              >
+                + 팁 추가
+              </button>
+            </div>
+
+            {/* 카테고리/난이도/시간/인분 */}
             <div className="form-row">
               <div className="form-group">
                 <label>카테고리 *</label>
@@ -513,6 +666,7 @@ function RecipeFormPage() {
               </div>
             </div>
 
+            {/* 태그 */}
             <div className="form-group">
               <label>태그</label>
               <input
@@ -525,6 +679,7 @@ function RecipeFormPage() {
               />
             </div>
 
+            {/* 버튼 */}
             <div className="action-buttons">
               <button
                 type="submit"
@@ -546,6 +701,7 @@ function RecipeFormPage() {
         </div>
       </div>
 
+      {/* URL 입력 모달 */}
       {showUrlModal && (
         <div className="modal" onClick={() => setShowUrlModal(false)}>
           <div
@@ -607,6 +763,7 @@ function RecipeFormPage() {
         </div>
       )}
 
+      {/* URL 파싱 중 로딩 모달 */}
       {isParsing && (
         <div className="modal">
           <div className="modal-content">
@@ -617,6 +774,15 @@ function RecipeFormPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 알레르기 경고 모달 */}
+      {showAllergyWarning && (
+        <AllergyWarning
+          detectedAllergens={detectedAllergens}
+          onClose={handleAllergyWarningClose}
+          onContinue={handleAllergyWarningContinue}
+        />
       )}
     </div>
   );

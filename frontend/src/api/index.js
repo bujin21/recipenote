@@ -18,7 +18,7 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    console.log('📤 API Request:', config.method?.toUpperCase(), config.url); // 디버깅
+    console.log('API Request:', config.method?.toUpperCase(), config.url); // 디버깅
     return config;
   },
   (error) => {
@@ -29,11 +29,11 @@ api.interceptors.request.use(
 // 응답 인터셉터 (에러 처리)
 api.interceptors.response.use(
   (response) => {
-    console.log('📥 API Response:', response.status, response.config.url); // 디버깅
+    console.log(' API Response:', response.status, response.config.url); // 디버깅
     return response;
   },
   (error) => {
-    console.error('❌ API Error:', error.response?.status, error.config?.url); // 디버깅
+    console.error('API Error:', error.response?.status, error.config?.url); // 디버깅
     
     // 로그인/회원가입 요청은 401 에러 처리 제외
     const isAuthEndpoint = 
@@ -43,7 +43,7 @@ api.interceptors.response.use(
     
     if (error.response?.status === 401 && !isAuthEndpoint) {
       // 인증된 API 요청에서만 401 에러 시 로그아웃
-      console.log('🔴 401 Unauthorized - Redirecting to login...');
+      console.log(' 401 Unauthorized - Redirecting to login...');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';

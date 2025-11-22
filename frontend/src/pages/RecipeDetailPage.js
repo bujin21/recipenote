@@ -23,11 +23,11 @@ function RecipeDetailPage() {
       setLoading(true);
       const response = await getRecipe(id);
       
-      // 디버깅 로그
       console.log('========== 상세 페이지 디버깅 ==========');
       console.log('API 응답:', response);
       console.log('imageUrl:', response.data?.imageUrl);
       console.log('youtubeUrl:', response.data?.youtubeUrl);
+      console.log('tips:', response.data?.tips);
       console.log('=======================================');
       
       if (response.success) {
@@ -94,6 +94,7 @@ function RecipeDetailPage() {
           <div className="logo">🍳 RecipeNote</div>
           <nav className="nav">
             <a href="/dashboard">내 레시피</a>
+            <a href="/ai-recipe">AI 레시피</a>
             <a href="/profile">프로필</a>
             <a onClick={handleLogout} style={{ cursor: 'pointer' }}>로그아웃</a>
           </nav>
@@ -113,6 +114,7 @@ function RecipeDetailPage() {
           <div className="logo">🍳 RecipeNote</div>
           <nav className="nav">
             <a href="/dashboard">내 레시피</a>
+            <a href="/ai-recipe">AI 레시피</a>
             <a href="/profile">프로필</a>
             <a onClick={handleLogout} style={{ cursor: 'pointer' }}>로그아웃</a>
           </nav>
@@ -133,6 +135,7 @@ function RecipeDetailPage() {
         <div className="logo">🍳 RecipeNote</div>
         <nav className="nav">
           <a href="/dashboard">내 레시피</a>
+          <a href="/ai-recipe">AI 레시피</a>
           <a href="/profile">프로필</a>
           <a onClick={handleLogout} style={{ cursor: 'pointer' }}>로그아웃</a>
         </nav>
@@ -149,6 +152,7 @@ function RecipeDetailPage() {
             <span>⏱️ {recipe.cookingTime}분</span>
             <span>👤 {recipe.difficulty}</span>
             <span>🍽️ {recipe.servings || 2}인분</span>
+            {recipe.category && <span>🏷️ {recipe.category}</span>}
           </div>
           {recipe.tags && recipe.tags.length > 0 && (
             <div className="tags">
@@ -243,6 +247,27 @@ function RecipeDetailPage() {
             </div>
           ))}
         </div>
+
+        {/* 조리 팁 */}
+        {recipe.tips && recipe.tips.length > 0 && (
+          <div style={{ marginTop: '40px' }}>
+            <h2 className="section-title">💡 조리 팁</h2>
+            <div style={{
+              background: '#FFFBEB',
+              borderLeft: '4px solid #F59E0B',
+              borderRadius: '8px',
+              padding: '16px 20px'
+            }}>
+              <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                {recipe.tips.map((tip, index) => (
+                  <li key={index} style={{ marginBottom: '8px', color: '#92400E', lineHeight: '1.6' }}>
+                    {tip}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
 
         <div className="action-buttons">
           <button 

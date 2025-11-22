@@ -143,6 +143,7 @@ function DashboardPage() {
         <div className="logo">🍳 RecipeNote</div>
         <nav className="nav">
           <a href="/dashboard">내 레시피</a>
+          <a href="/ai-recipe">AI 레시피</a>
           <a href="/profile">프로필</a>
           <a onClick={handleLogout} style={{ cursor: 'pointer' }}>로그아웃</a>
         </nav>
@@ -246,10 +247,6 @@ function DashboardPage() {
                       📺 YouTube
                     </div>
                   )}
-                  
-                  <div className="recipe-favorite">
-                    🤍
-                  </div>
                 </div>
                 
                 <div className="recipe-content">
